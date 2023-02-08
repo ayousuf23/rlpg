@@ -116,7 +116,7 @@ Another example of a rule is:
 ```
 ...
 SECTION GRAMMAR
-expression: "(" expression ")
+expression: "(" expression ")"
 ;
 ```
 
@@ -125,7 +125,7 @@ If a rule has multiple possible derivations, they are written on the lines follo
 ```
 ...
 SECTION GRAMMAR
-expression: "(" expression ")
+expression: "(" expression ")"
 | number
 | identifier
 ;
