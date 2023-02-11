@@ -4,7 +4,16 @@ use file_parser::FileParser;
 mod regex_parser;
 use regex_parser::RegExParser;
 
+mod node_kind;
+use node_kind::NodeKind;
+
+mod nfa_builder;
+
+mod nfa;
+
 use clap::Parser;
+
+use crate::nfa_builder::NFABuilder;
 
 mod node;
 
@@ -27,5 +36,8 @@ fn main() {
 
     // Create a regex parser
     let mut parser = RegExParser::new("hello");
-    parser.parse();
+    let mut parse_root = parser.parse();
+
+    // Generate an NFA
+    let mut nfa = NFABuilder::build_from_base(&parse_root.children[0].children[0]);
 }
