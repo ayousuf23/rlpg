@@ -1,4 +1,6 @@
 mod file_parser;
+use std::io;
+
 use file_parser::FileParser;
 
 mod regex_parser;
@@ -35,9 +37,24 @@ fn main() {
     FileParser::parse_file(&args.filename);
 
     // Create a regex parser
-    let mut parser = RegExParser::new("hello");
+    let mut parser = RegExParser::new("hell.");
     let mut parse_root = parser.parse();
 
     // Generate an NFA
-    let mut nfa = NFABuilder::build_from_base(&parse_root.children[0].children[0]);
+    let mut nfa = NFABuilder::build(&parse_root).expect("Error");
+
+    loop {
+        let mut to_check = String::new();
+        std::io::stdin().read_line(&mut to_check).expect("failed to readline");
+        let to_check = to_check.trim().to_string();
+
+        if nfa.simulate(to_check) {
+            println!("Success");
+        }
+        else {
+            println!("Failure");
+        }
+    }
+
+    //println!("{:?}", nfa);
 }

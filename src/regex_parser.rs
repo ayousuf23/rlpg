@@ -54,8 +54,18 @@ impl RegExParser<'_> {
     }
     
     fn parse_base(&mut self) -> Option<Box<Node>> {
+        if self.reached_end {
+            return None;
+        }
+
         // Check if the current character is a character
-        if !self.reached_end && RegExParser::is_non_regex_char(self.current_char) {
+        if self.current_char == '.' {
+            let node = Some(Box::new(Node::new(self.current_char.to_string(), NodeKind::BaseAnyChar)));
+            self.advance();
+            return node;
+        }
+
+        if RegExParser::is_non_regex_char(self.current_char) {
             let node = Some(Box::new(Node::new(self.current_char.to_string(), NodeKind::Base)));
             // Advance the parser
             self.advance();

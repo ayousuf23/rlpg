@@ -1,5 +1,6 @@
 pub enum NodeKind {
     Base,
+    BaseAnyChar,
     RegEx,
-    Root
+    Root,
 }
