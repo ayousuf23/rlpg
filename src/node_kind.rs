@@ -3,4 +3,6 @@ pub enum NodeKind {
     BaseAnyChar,
     RegEx,
     Root,
+    Middle,
+    MiddlePlus,
 }

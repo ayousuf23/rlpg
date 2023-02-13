@@ -12,6 +12,8 @@ impl NFABuilder {
             NodeKind::RegEx => NFABuilder::build_from_regex(node),
             NodeKind::Root => NFABuilder::build_from_regex(node),
             NodeKind::BaseAnyChar => NFABuilder::build_from_base(node),
+            NodeKind::Middle => NFABuilder::build_from_middle(node),
+            NodeKind::MiddlePlus => NFABuilder::build_from_middle_plus(node),
         };
     }
 
@@ -57,6 +59,25 @@ impl NFABuilder {
 
         None
     }
+
+    pub fn build_from_middle(node: &Node) -> Option<NFA> {
+        return NFABuilder::build(&node.children[0]);
+    }
+
+    pub fn build_from_middle_plus(node: &Node) -> Option<NFA> {
+        // Build its child first
+        let child_node = &node.children[0];
+        if let Some(child) = NFABuilder::build(&child_node) {
+            // Add a transition from end to start
+            let trans = Transition {
+                kind: TransitionKind::Empty,
+                destination: Rc::clone(&child.start),
+            };
+            let mut end = child.start.as_ref().lock().unwrap();
+            end.transitions.push(trans);
+        }
+        None
+    }   
 
     pub fn build_from_base<'a>(node: &'a Node) -> Option<NFA> {
         // Create a start node

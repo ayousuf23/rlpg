@@ -36,7 +36,7 @@ impl RegExParser<'_> {
 
     fn parse_regex(&mut self) -> Option<Box<Node>> {
         // Parse base
-        if let Some(base_node) = self.parse_base() {
+        if let Some(base_node) = self.parse_middle() {
             // Create a node called regex
             let mut regex_node = Box::new(Node::new("RegEx".to_string(), NodeKind::RegEx));
 
@@ -51,6 +51,36 @@ impl RegExParser<'_> {
             return Some(regex_node);
         }
         return None;
+    }
+
+    fn parse_middle(&mut self) -> Option<Box<Node>> {
+        // We want to parse base folloed by one or more +'s
+
+        // First, parse base
+        let base = self.parse_base();
+        if let None = base {
+            return None;
+        }
+        let base = base.unwrap();
+
+        // Create middle node
+        let mut middle = Box::new(Node::new("Middle".to_string(), NodeKind::Middle));
+
+        if self.current_char == '+' && !self.reached_end {
+            // Create a '+' node
+            let mut plus_node = Box::new(Node::new("+".to_string(), NodeKind::MiddlePlus));
+            plus_node.add_child(base);
+            middle.add_child(plus_node);
+            // Check if base is followed by one or more +'s
+            while self.current_char == '+' && !self.reached_end {
+                self.advance();
+            }
+        } else {
+            middle.add_child(base);
+        }
+
+        Some(middle)
+
     }
     
     fn parse_base(&mut self) -> Option<Box<Node>> {
@@ -85,5 +115,9 @@ impl RegExParser<'_> {
 
     fn is_non_regex_char(character: char) -> bool {
         return true;
+    }
+
+    fn peek_next_character(&mut self) -> Option<char> {
+        return self.iterator.peek().copied();
     }
 }
