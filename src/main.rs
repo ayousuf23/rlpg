@@ -29,12 +29,12 @@ struct Args {
 
 fn main() {
 
-    let args = Args::parse();
+    /*let args = Args::parse();
 
     println!("{}", args.filename);    
 
     // Open the file
-    FileParser::parse_file(&args.filename);
+    FileParser::parse_file(&args.filename);*/
 
     // Create a regex parser
     let mut parser = RegExParser::new("h+");

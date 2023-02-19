@@ -73,8 +73,10 @@ impl NFABuilder {
                 kind: TransitionKind::Empty,
                 destination: Rc::clone(&child.start),
             };
-            let mut end = child.start.as_ref().lock().unwrap();
+            let mut end = child.end.as_ref().lock().unwrap();
             end.transitions.push(trans);
+            drop(end);
+            return Some(child)
         }
         None
     }   
