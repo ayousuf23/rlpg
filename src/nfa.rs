@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::Mutex, intrinsics::atomic_cxchgweak_acquire_acquire};
+use std::{rc::Rc, sync::Mutex, collections::VecDeque};
 
 #[derive(Eq,PartialEq, Debug)]
 pub enum TransitionKind {
@@ -84,10 +84,20 @@ impl NFANode {
     }
 
     pub fn simulate2(node: Rc<Mutex<NFANode>>, chars: &Vec<char>, index: usize) -> bool {
-        let curr = node;
 
-        while index < chars.len() {
+        //let mut stack: Vec<(Rc<Mutex<NFANode>>, usize)> = Vec::new();
+        
+
+        let mut stack: VecDeque<(Rc<Mutex<NFANode>>, usize)> = VecDeque::new();
+        stack.push_back((node, index));
+
+        while let Some((curr, index)) = stack.pop_front() {
             let curr_node = curr.as_ref().lock().unwrap();
+
+            if index >= chars.len()
+            {
+                return curr_node.kind == NFANodeKind::End;
+            }
 
             let char = chars[index];
             // See if there is a transition on char
@@ -99,12 +109,10 @@ impl NFANode {
                     _ => continue,
                 };
                 
-                curr = trans.destination;
-                break;
+                stack.push_back((Rc::clone(&trans.destination), new_index));
             }
         }
-        let symbol = curr.as_ref().lock().unwrap();
-        return symbol.kind == NFANodeKind::End;
+        return false;
     }
 }
 
@@ -113,6 +121,6 @@ impl NFA {
         let chars: Vec<char> = string.chars().collect();
         /*let start = self.start.as_ref().lock().unwrap();
         return start.simulate(&chars, 0);*/
-        return NFANode::simulate2(self.start, &chars, 0);
+        return NFANode::simulate2(Rc::clone(&self.start), &chars, 0);
     }
 }
