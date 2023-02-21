@@ -5,4 +5,6 @@ pub enum NodeKind {
     Root,
     Middle,
     MiddlePlus,
+    Star,
+    QuestionMark
 }

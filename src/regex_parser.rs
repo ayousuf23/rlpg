@@ -66,13 +66,23 @@ impl RegExParser<'_> {
         // Create middle node
         let mut middle = Box::new(Node::new("Middle".to_string(), NodeKind::Middle));
 
-        if self.current_char == '+' && !self.reached_end {
+        if (self.current_char == '+' || self.current_char == '*' || self.current_char == '?') && !self.reached_end {
+
+            let node_kind = match self.current_char {
+                '+' => NodeKind::MiddlePlus,
+                '*' => NodeKind::Star,
+                '?' => NodeKind::QuestionMark,
+                _ => panic!()
+            };
+
             // Create a '+' node
-            let mut plus_node = Box::new(Node::new("+".to_string(), NodeKind::MiddlePlus));
-            plus_node.add_child(base);
-            middle.add_child(plus_node);
-            // Check if base is followed by one or more +'s
-            while self.current_char == '+' && !self.reached_end {
+            let mut op_node = Box::new(Node::new(self.current_char.to_string(), node_kind));
+            op_node.add_child(base);
+            middle.add_child(op_node);
+            
+            // Check if base is followed by one or more of the same character
+            let curr_char_copy = self.current_char;
+            while self.current_char == curr_char_copy && !self.reached_end {
                 self.advance();
             }
         } else {

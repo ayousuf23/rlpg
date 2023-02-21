@@ -3,6 +3,7 @@ use std::{rc::Rc, sync::Mutex, collections::VecDeque};
 #[derive(Eq,PartialEq, Debug)]
 pub enum TransitionKind {
     Empty,
+    StrictEmpty,
     Character(char),
     AnyChar,
 }
@@ -60,24 +61,35 @@ impl NFANode {
     }
 
     pub fn simulate(&self, chars: &Vec<char>, index: usize) -> bool {
+        let mut char = None;
         if index >= chars.len() {
-            return self.kind == NFANodeKind::End;
+            // Check if there an empty or strict empty transition first
+            if self.kind == NFANodeKind::End {
+                return true;
+            }
+        } else {
+            char = Some(chars[index]);
         }
 
-        let char = chars[index];
+        
         // See if there is a transition on char
         for trans in &self.transitions {
             let new_index = match trans.kind {
-                TransitionKind::AnyChar => index + 1,
-                TransitionKind::Character(trans_char) if trans_char == char => index + 1,
+                TransitionKind::AnyChar if char.is_some() => index + 1,
+                TransitionKind::Character(trans_char) if char.is_some() && trans_char == char.unwrap() => index + 1,
                 TransitionKind::Empty => index,
-                _ => continue,
+                TransitionKind::StrictEmpty if chars.len() == 0 => index,
+                _ => panic!(),
             };
             
             let node = trans.destination.as_ref().lock().unwrap();
             if node.simulate(chars, new_index) {
                 return true;
             }
+        }
+
+        if index >= chars.len() {
+            return self.kind == NFANodeKind::End;
         }
 
         return false;
@@ -94,18 +106,24 @@ impl NFANode {
         while let Some((curr, index)) = stack.pop_front() {
             let curr_node = curr.as_ref().lock().unwrap();
 
+            let mut char = None;
             if index >= chars.len()
             {
-                return curr_node.kind == NFANodeKind::End;
+                if curr_node.kind == NFANodeKind::End {
+                    return true;
+                }
+            } else {
+                char = Some(chars[index]);
             }
 
-            let char = chars[index];
+            
             // See if there is a transition on char
             for trans in &curr_node.transitions {
                 let new_index = match trans.kind {
-                    TransitionKind::AnyChar => index + 1,
-                    TransitionKind::Character(trans_char) if trans_char == char => index + 1,
+                    TransitionKind::AnyChar if char.is_some() => index + 1,
+                    TransitionKind::Character(trans_char) if char.is_some() && trans_char == char.unwrap() => index + 1,
                     TransitionKind::Empty => index,
+                    TransitionKind::StrictEmpty => index,
                     _ => continue,
                 };
                 

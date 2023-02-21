@@ -14,6 +14,8 @@ impl NFABuilder {
             NodeKind::BaseAnyChar => NFABuilder::build_from_base(node),
             NodeKind::Middle => NFABuilder::build_from_middle(node),
             NodeKind::MiddlePlus => NFABuilder::build_from_middle_plus(node),
+            NodeKind::Star => NFABuilder::build_from_start(node),
+            _ => panic!()
         };
     }
 
@@ -77,6 +79,22 @@ impl NFABuilder {
             end.transitions.push(trans);
             drop(end);
             return Some(child)
+        }
+        None
+    }
+
+    pub fn build_from_start(node: &Node) -> Option<NFA> {
+        // Build like a plus node
+        if let Some(nfa) = NFABuilder::build_from_middle_plus(node) {
+            // Add a transition from start to end
+            let trans = Transition {
+                kind: TransitionKind::StrictEmpty,
+                destination: Rc::clone(&nfa.end),
+            };
+            let mut start = nfa.start.as_ref().lock().unwrap();
+            start.transitions.push(trans);
+            drop(start);
+            return Some(nfa)
         }
         None
     }   
