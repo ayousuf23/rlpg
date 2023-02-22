@@ -8,4 +8,5 @@ pub enum NodeKind {
     Star,
     QuestionMark,
     Parentheses,
+    Bracket,
 }

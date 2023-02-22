@@ -9,6 +9,8 @@ pub struct RegExParser<'a> {
     iterator: Peekable<Chars<'a>>,
     current_char: char,
     reached_end: bool,
+    open_parenthesis_cnt: i32,
+    close_parenthesis_cnt: i32,
 }
 
 impl RegExParser<'_> {
@@ -20,6 +22,8 @@ impl RegExParser<'_> {
             iterator: pattern.chars().peekable(),
             current_char: 'a',
             reached_end: false,
+            open_parenthesis_cnt: 0,
+            close_parenthesis_cnt: 0,
             
         };
         parser.advance();
@@ -107,14 +111,30 @@ impl RegExParser<'_> {
 
         // Check for parentheses
         if self.current_char == '(' {
+            self.open_parenthesis_cnt += 1;
             let mut node = Some(Box::new(Node::new(self.current_char.to_string(), NodeKind::Parentheses)));
+            self.advance();
             // Parse regex
             if let Some(inner_expression) = self.parse_regex() {
                 node.as_mut().unwrap().add_child(inner_expression);
             }
             return node;
         } else if self.current_char == ')' {
-            return None;
+            if self.open_parenthesis_cnt - self.close_parenthesis_cnt == 1 {
+                self.close_parenthesis_cnt += 1;
+                self.advance();
+                return None;
+            } else {
+                // Throw an error
+                panic!("Invalid regular expression! Number of closed parentheses encountered is not equal
+                to the number of open parenthesis encountered");
+            }
+            
+        }
+
+        if self.current_char == ']' {
+            self.advance();
+            return self.parse_bracket();
         }
 
         if RegExParser::is_non_regex_char(self.current_char) {
@@ -124,6 +144,25 @@ impl RegExParser<'_> {
             return node;
         }
         return None;
+    }
+
+    fn parse_bracket(&mut self) -> Option<Box<Node>> {
+        // Accepts a character or a range
+        let mut inner_bracket_node = Node::new("[".to_string(), NodeKind::Bracket);
+
+        while self.current_char != ']' || !self.reached_end {
+            // Create a node for each character
+            let child_node = Box::new(Node::new(self.current_char.to_string(), NodeKind::Base));
+            inner_bracket_node.add_child(child_node);
+            self.advance();
+        }
+
+        // Check if the current char is ']'
+        if self.current_char != ']' {
+            panic!("Bracket does not have a closing ']'");
+        }
+
+        return Some(Box::new(inner_bracket_node));
     }
 
     fn advance(&mut self) {
