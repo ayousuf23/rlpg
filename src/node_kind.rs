@@ -9,4 +9,5 @@ pub enum NodeKind {
     QuestionMark,
     Parentheses,
     Bracket,
+    Range,
 }

@@ -132,7 +132,7 @@ impl RegExParser<'_> {
             
         }
 
-        if self.current_char == ']' {
+        if self.current_char == '[' {
             self.advance();
             return self.parse_bracket();
         }
@@ -150,15 +150,55 @@ impl RegExParser<'_> {
         // Accepts a character or a range
         let mut inner_bracket_node = Node::new("[".to_string(), NodeKind::Bracket);
 
-        while self.current_char != ']' || !self.reached_end {
+        let mut prev_char = None;
+
+        let mut range_started = false;
+
+        while self.current_char != ']' && !self.reached_end {
             // Create a node for each character
-            let child_node = Box::new(Node::new(self.current_char.to_string(), NodeKind::Base));
-            inner_bracket_node.add_child(child_node);
+
+            // Peek to see if the next character is a -
+            if let Some(next_char) = self.peek_next_character() {
+                if next_char == '-' {
+                    if range_started {
+                        // Throw an error: two -'s after each other
+                        panic!("Two or more '-''s are not allowed after each other in a range.");
+                    }
+                    prev_char = Some(self.current_char);
+                    range_started = true;
+                } else if range_started {
+                    // Create a range between left to right
+                    if !RegExParser::validate_range(prev_char.unwrap(), next_char) {
+                        panic!("This range is not valid because the character on the left-hand side must be equal to or lower than the character on the right-hand side in value.")
+                    }
+                    let lhs = Box::new(Node::new(prev_char.unwrap().to_string(), NodeKind::Base));
+                    let rhs = Box::new(Node::new(next_char.to_string(), NodeKind::Base));
+                    let mut range_node = Box::new(Node::new("-".to_string(), NodeKind::Range));
+                    range_node.as_mut().add_child(lhs);
+                    range_node.as_mut().add_child(rhs);
+                    inner_bracket_node.add_child(range_node);
+                    range_started = false;
+                    self.advance();
+                }
+            } else if range_started {
+                // Throw an error: range has no more characters
+                panic!("Range is not valid because it is missing a character to the right of the dash.");
+            }
+
+            if self.current_char == '-' {
+                panic!("Range is not valid because it is missing a character to the left of the dash.");
+            }
+
+            if !range_started {
+                let child_node = Box::new(Node::new(self.current_char.to_string(), NodeKind::Base));
+                inner_bracket_node.add_child(child_node);
+            }
             self.advance();
         }
 
-        // Check if the current char is ']'
-        if self.current_char != ']' {
+        if self.current_char == ']' {
+            self.advance();
+        } else {
             panic!("Bracket does not have a closing ']'");
         }
 
@@ -180,5 +220,9 @@ impl RegExParser<'_> {
 
     fn peek_next_character(&mut self) -> Option<char> {
         return self.iterator.peek().copied();
+    }
+
+    fn validate_range(lower: char, higher: char) -> bool {
+        return lower <= higher;
     }
 }

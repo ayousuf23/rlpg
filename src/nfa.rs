@@ -74,6 +74,9 @@ impl NFANode {
             let mut curr_node = curr.as_ref().lock().unwrap();
 
             let mut char = None;
+
+            //println!("{:?}", curr_node.kind);
+            //println!("{}", index);
             if index >= chars.len()
             {
                 if curr_node.kind == NFANodeKind::End {
