@@ -6,5 +6,6 @@ pub enum NodeKind {
     Middle,
     MiddlePlus,
     Star,
-    QuestionMark
+    QuestionMark,
+    Parentheses,
 }

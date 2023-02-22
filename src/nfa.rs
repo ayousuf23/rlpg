@@ -60,51 +60,18 @@ impl NFANode {
         }
     }
 
-    pub fn simulate(&self, chars: &Vec<char>, index: usize) -> bool {
-        let mut char = None;
-        if index >= chars.len() {
-            // Check if there an empty or strict empty transition first
-            if self.kind == NFANodeKind::End {
-                return true;
-            }
-        } else {
-            char = Some(chars[index]);
-        }
-
-        
-        // See if there is a transition on char
-        for trans in &self.transitions {
-            let new_index = match trans.kind {
-                TransitionKind::AnyChar if char.is_some() => index + 1,
-                TransitionKind::Character(trans_char) if char.is_some() && trans_char == char.unwrap() => index + 1,
-                TransitionKind::Empty => index,
-                TransitionKind::StrictEmpty if chars.len() == 0 => index,
-                _ => panic!(),
-            };
-            
-            let node = trans.destination.as_ref().lock().unwrap();
-            if node.simulate(chars, new_index) {
-                return true;
-            }
-        }
-
-        if index >= chars.len() {
-            return self.kind == NFANodeKind::End;
-        }
-
-        return false;
+    pub fn add_transition_to(&mut self, destination: Rc<Mutex<NFANode>>, transition_kind: TransitionKind)
+    {
+        self.transitions.push(Transition { destination: destination, kind: transition_kind });
     }
 
-    pub fn simulate2(node: Rc<Mutex<NFANode>>, chars: &Vec<char>, index: usize) -> bool {
-
-        //let mut stack: Vec<(Rc<Mutex<NFANode>>, usize)> = Vec::new();
-        
+    pub fn simulate(node: Rc<Mutex<NFANode>>, chars: &Vec<char>, index: usize) -> bool {
 
         let mut stack: VecDeque<(Rc<Mutex<NFANode>>, usize)> = VecDeque::new();
         stack.push_back((node, index));
 
         while let Some((curr, index)) = stack.pop_front() {
-            let curr_node = curr.as_ref().lock().unwrap();
+            let mut curr_node = curr.as_ref().lock().unwrap();
 
             let mut char = None;
             if index >= chars.len()
@@ -118,12 +85,12 @@ impl NFANode {
 
             
             // See if there is a transition on char
-            for trans in &curr_node.transitions {
+            for trans in &mut curr_node.transitions {
+
                 let new_index = match trans.kind {
                     TransitionKind::AnyChar if char.is_some() => index + 1,
                     TransitionKind::Character(trans_char) if char.is_some() && trans_char == char.unwrap() => index + 1,
                     TransitionKind::Empty => index,
-                    TransitionKind::StrictEmpty => index,
                     _ => continue,
                 };
                 
@@ -139,6 +106,6 @@ impl NFA {
         let chars: Vec<char> = string.chars().collect();
         /*let start = self.start.as_ref().lock().unwrap();
         return start.simulate(&chars, 0);*/
-        return NFANode::simulate2(Rc::clone(&self.start), &chars, 0);
+        return NFANode::simulate(Rc::clone(&self.start), &chars, 0);
     }
 }

@@ -14,7 +14,8 @@ impl NFABuilder {
             NodeKind::BaseAnyChar => NFABuilder::build_from_base(node),
             NodeKind::Middle => NFABuilder::build_from_middle(node),
             NodeKind::MiddlePlus => NFABuilder::build_from_middle_plus(node),
-            NodeKind::Star => NFABuilder::build_from_start(node),
+            NodeKind::Star => NFABuilder::build_from_star(node),
+            NodeKind::QuestionMark => NFABuilder::build_from_question_mark(node),
             _ => panic!()
         };
     }
@@ -83,21 +84,34 @@ impl NFABuilder {
         None
     }
 
-    pub fn build_from_start(node: &Node) -> Option<NFA> {
+    pub fn build_from_star(node: &Node) -> Option<NFA> {
         // Build like a plus node
         if let Some(nfa) = NFABuilder::build_from_middle_plus(node) {
-            // Add a transition from start to end
-            let trans = Transition {
-                kind: TransitionKind::StrictEmpty,
-                destination: Rc::clone(&nfa.end),
-            };
-            let mut start = nfa.start.as_ref().lock().unwrap();
-            start.transitions.push(trans);
-            drop(start);
-            return Some(nfa)
+            // Add a new start node 
+            let mut new_start = NFANode::new_start();
+
+            // Add empty transition from new_start to end
+            new_start.add_transition_to(Rc::clone(&nfa.end), TransitionKind::Empty);
+
+            // Add empty transition from new_start to start
+            new_start.add_transition_to(nfa.start, TransitionKind::Empty);
+
+            return Some(NFA {start: Rc::new(Mutex::new(new_start)), end: nfa.end});
         }
         None
-    }   
+    }
+
+    pub fn build_from_question_mark(node: &Node) -> Option<NFA> {
+        if let Some(nfa) = NFABuilder::build_from_base(node.children[0].as_ref()) {
+            let mut start = nfa.start.lock().unwrap();
+
+            // Add empty transition from new_start to end
+            start.add_transition_to(Rc::clone(&nfa.end), TransitionKind::Empty);
+            drop(start);
+            return Some(nfa);
+        }
+        None
+    }
 
     pub fn build_from_base<'a>(node: &'a Node) -> Option<NFA> {
         // Create a start node

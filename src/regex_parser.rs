@@ -105,6 +105,18 @@ impl RegExParser<'_> {
             return node;
         }
 
+        // Check for parentheses
+        if self.current_char == '(' {
+            let mut node = Some(Box::new(Node::new(self.current_char.to_string(), NodeKind::Parentheses)));
+            // Parse regex
+            if let Some(inner_expression) = self.parse_regex() {
+                node.as_mut().unwrap().add_child(inner_expression);
+            }
+            return node;
+        } else if self.current_char == ')' {
+            return None;
+        }
+
         if RegExParser::is_non_regex_char(self.current_char) {
             let node = Some(Box::new(Node::new(self.current_char.to_string(), NodeKind::Base)));
             // Advance the parser
