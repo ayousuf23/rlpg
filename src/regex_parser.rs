@@ -96,6 +96,10 @@ impl RegExParser<'_> {
         Some(middle)
 
     }
+
+    fn parse_high(&mut self) -> Option<Box<Node>> {
+        
+    }
     
     fn parse_base(&mut self) -> Option<Box<Node>> {
         if self.reached_end {
@@ -171,12 +175,11 @@ impl RegExParser<'_> {
                     if !RegExParser::validate_range(prev_char.unwrap(), next_char) {
                         panic!("This range is not valid because the character on the left-hand side must be equal to or lower than the character on the right-hand side in value.")
                     }
-                    let lhs = Box::new(Node::new(prev_char.unwrap().to_string(), NodeKind::Base));
-                    let rhs = Box::new(Node::new(next_char.to_string(), NodeKind::Base));
-                    let mut range_node = Box::new(Node::new("-".to_string(), NodeKind::Range));
-                    range_node.as_mut().add_child(lhs);
-                    range_node.as_mut().add_child(rhs);
-                    inner_bracket_node.add_child(range_node);
+                    let end_char = char::from_u32(next_char as u32 + 1).unwrap();
+                    for i in prev_char.unwrap()..end_char {
+                        let node = Box::new(Node::new(i.to_string(), NodeKind::Base));
+                        inner_bracket_node.add_child(node);
+                    }
                     range_started = false;
                     self.advance();
                 }

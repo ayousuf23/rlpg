@@ -37,7 +37,7 @@ fn main() {
     FileParser::parse_file(&args.filename);*/
 
     // Create a regex parser
-    let mut parser = RegExParser::new("[he]+");
+    let mut parser = RegExParser::new("[z-a]+");
     let mut parse_root = parser.parse();
 
     // Generate an NFA
