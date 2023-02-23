@@ -18,6 +18,7 @@ impl NFABuilder {
             NodeKind::QuestionMark => NFABuilder::build_from_question_mark(node),
             NodeKind::Parentheses => NFABuilder::build_from_parentheses(node),
             NodeKind::Bracket => NFABuilder::build_or_of_child_nodes(node),
+            NodeKind::High => NFABuilder::build_or_of_child_nodes(node),
             _ => panic!()
         };
     }
@@ -63,6 +64,10 @@ impl NFABuilder {
         }
 
         None
+    }
+
+    fn build_from_high(node: &Node) -> Option<NFA> {
+        return NFABuilder::build_or_of_child_nodes(node);
     }
 
     pub fn build_from_middle(node: &Node) -> Option<NFA> {

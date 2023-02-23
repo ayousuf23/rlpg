@@ -40,7 +40,7 @@ impl RegExParser<'_> {
 
     fn parse_regex(&mut self) -> Option<Box<Node>> {
         // Parse base
-        if let Some(base_node) = self.parse_middle() {
+        if let Some(base_node) = self.parse_high() {
             // Create a node called regex
             let mut regex_node = Box::new(Node::new("RegEx".to_string(), NodeKind::RegEx));
 
@@ -98,7 +98,25 @@ impl RegExParser<'_> {
     }
 
     fn parse_high(&mut self) -> Option<Box<Node>> {
-        
+        // high = middle | middle
+        // high = middle
+        if let Some(middle1) = self.parse_middle() {
+            if self.current_char == '|' && !self.reached_end {
+                self.advance();
+                if let Some(middle2) = self.parse_middle() {
+                    // Create a new start node
+                    let mut node = Box::new(Node::new("high".to_string(), NodeKind::High));
+                    node.add_child(middle1);
+                    node.add_child(middle2);
+                    return Some(node);
+                } else {
+                    panic!("The OR operator | is not followed by an expresion.");
+                }
+            } else {
+                return Some(middle1);
+            }
+        }
+        None
     }
     
     fn parse_base(&mut self) -> Option<Box<Node>> {
@@ -141,28 +159,63 @@ impl RegExParser<'_> {
             return self.parse_bracket();
         }
 
-        if RegExParser::is_non_regex_char(self.current_char) {
-            let node = Some(Box::new(Node::new(self.current_char.to_string(), NodeKind::Base)));
-            // Advance the parser
-            self.advance();
-            return node;
-        }
-        return None;
+        let char = self.parse_valid_or_escaped_char_as_char();
+        return Some(Box::new(Node::new(char.to_string(), NodeKind::Base)));
     }
 
     fn parse_bracket(&mut self) -> Option<Box<Node>> {
         // Accepts a character or a range
         let mut inner_bracket_node = Node::new("[".to_string(), NodeKind::Bracket);
 
-        let mut prev_char = None;
+        //let mut prev_char: Option<char> = None;
 
         let mut range_started = false;
 
+        let mut lhs: Option<char> = None;
+
         while self.current_char != ']' && !self.reached_end {
             // Create a node for each character
+            
+
+            if self.current_char == '-' {
+                if range_started {
+                    panic!("Two or more '-''s are not allowed after each other in a range.");
+                }   
+                range_started = true;
+                self.advance();
+                continue;
+            }
+            
+            // Get the valid or escaped character
+            let cur_char = self.parse_valid_or_escaped_char_as_char();
+
+            
+            if range_started {
+                if let Some(real_lhs) = lhs {
+                    if !RegExParser::validate_range(real_lhs, cur_char) {
+                        panic!("This range is not valid because the character on the left-hand side must be equal to or lower than the character on the right-hand side in value.")
+                    }
+                    let end_char = char::from_u32(cur_char as u32 + 1).unwrap();
+                    for i in real_lhs..end_char {
+                        let node = Box::new(Node::new(i.to_string(), NodeKind::Base));
+                        inner_bracket_node.add_child(node);
+                    }
+                    range_started = false;
+                    lhs = None;
+                } else {
+                    panic!("Range is not valid because it is missing a character to the left of the dash.");
+                }
+            } else {
+                if lhs.is_some() {
+                    let node = Box::new(Node::new(lhs.unwrap().to_string(), NodeKind::Base));
+                    inner_bracket_node.add_child(node);
+                }
+
+                lhs = Some(cur_char);
+            }
 
             // Peek to see if the next character is a -
-            if let Some(next_char) = self.peek_next_character() {
+            /*if let Some(next_char) = self.peek_next_character() {
                 if next_char == '-' {
                     if range_started {
                         // Throw an error: two -'s after each other
@@ -196,7 +249,22 @@ impl RegExParser<'_> {
                 let child_node = Box::new(Node::new(self.current_char.to_string(), NodeKind::Base));
                 inner_bracket_node.add_child(child_node);
             }
-            self.advance();
+
+            if range_started {
+                panic!();
+            }
+
+            self.advance();*/
+        }
+
+        if range_started {
+            panic!();
+        }
+
+        if lhs.is_some() {
+            let node = Box::new(Node::new(lhs.unwrap().to_string(), NodeKind::Base));
+            inner_bracket_node.add_child(node);
+            lhs = None;
         }
 
         if self.current_char == ']' {
@@ -208,6 +276,46 @@ impl RegExParser<'_> {
         return Some(Box::new(inner_bracket_node));
     }
 
+    fn parse_valid_or_escaped_char(&mut self) -> Box<Node>
+    {
+        let mut to_return;
+        if self.current_char == '\\' {
+            if let Some(next) = self.peek_next_character() {
+                to_return = Box::new(Node::new(self.current_char.to_string(), NodeKind::Base));
+                self.advance();
+            } else {
+                panic!("Error: escape symbol is not followed by a character to escape");
+            }
+        } else {
+            if RegExParser::does_char_require_escape(self.current_char) {
+                panic!("Error: this character must be escaped before using it literally");
+            }
+            to_return = Box::new(Node::new(self.current_char.to_string(), NodeKind::Base));
+        }
+        self.advance();
+        return to_return;
+    }
+
+    fn parse_valid_or_escaped_char_as_char(&mut self) -> char
+    {
+        let mut to_return;
+        if self.current_char == '\\' {
+            if let Some(next) = self.peek_next_character() {
+                to_return = next;
+                self.advance();
+            } else {
+                panic!("Error: escape symbol is not followed by a character to escape");
+            }
+        } else {
+            if RegExParser::does_char_require_escape(self.current_char) {
+                panic!("Error: this character must be escaped before using it literally");
+            }
+            to_return = self.current_char;
+        }
+        self.advance();
+        return to_return;
+    }
+
     fn advance(&mut self) {
         if let Some(next) = self.iterator.next() {
             self.current_char = next;
@@ -217,8 +325,11 @@ impl RegExParser<'_> {
         self.position += 1;
     }
 
-    fn is_non_regex_char(character: char) -> bool {
-        return true;
+    fn does_char_require_escape(character: char) -> bool {
+        return match character {
+            '+' | '*' | '?' | '-' | '(' | ')' | '.' | '[' | ']' | '|' | '\\' => true,
+            _ => false
+        }
     }
 
     fn peek_next_character(&mut self) -> Option<char> {
