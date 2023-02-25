@@ -1,5 +1,7 @@
 use std::{rc::Rc, sync::Mutex, collections::VecDeque};
 
+use crate::file_parser::Rule;
+
 #[derive(Eq,PartialEq, Debug)]
 pub enum TransitionKind {
     Empty,
@@ -105,10 +107,27 @@ impl NFANode {
 }
 
 impl NFA {
-    pub fn simulate(&self, string: String) -> bool {
+    pub fn simulate(&self, string: &str) -> bool {
         let chars: Vec<char> = string.chars().collect();
         /*let start = self.start.as_ref().lock().unwrap();
         return start.simulate(&chars, 0);*/
         return NFANode::simulate(Rc::clone(&self.start), &chars, 0);
+    }
+
+    pub fn build_from_rules(rules: &Vec<Rule>) -> NFA {
+        // For each rule, parse it and create an NFA
+        let mut nfas = Vec<NFA>::new();
+
+        // Create start node
+        
+        for rule in rules {
+            // Create parse tree
+
+            // Create NFA
+
+            // Combine with start node
+
+            // change end node to EndsWithToken
+        }
     }
 }
