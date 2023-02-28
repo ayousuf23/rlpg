@@ -12,7 +12,7 @@ pub enum FileParserErrorKind {
 
 #[derive(Debug, Clone)]
 pub struct FileParserError {
-    kind: FileParserErrorKind,
+    pub kind: FileParserErrorKind,
 }
 
 impl FileParserError {
@@ -94,6 +94,7 @@ impl FileParser {
 
     fn parse_rule(line: &str) -> Result<Rule, FileParserError> {
         let parts = FileParser::parse_line(line);
+        println!("{:?}", parts);
 
         // Get kind
         let kind = FileParser::determine_rule_kind(parts[0].to_string());
@@ -154,14 +155,18 @@ impl FileParser {
 
         let mut curr_i = 0;
 
-        let mut curr_part = &mut parts[curr_i];
-
         for c in line.chars() {
-            if c.is_whitespace() && !(c == ' ' && escaped) {     
-                if curr_part.len() > 0 && curr_i < 2 {
+            println!("{}", c);
+            if c.is_whitespace() && !(c == ' ' && escaped) {  
+                println!("here");   
+                if parts[curr_i].len() > 0 {
                     // Go to next part
+                    if curr_i == 2 {
+                        println!("hi");
+                        return parts;
+                    }
                     curr_i += 1;
-                    curr_part = &mut parts[curr_i];
+                    //curr_part = &mut parts[curr_i];
                 }
                 continue;
             }
@@ -172,7 +177,9 @@ impl FileParser {
                 escaped = false;
             }
 
-            curr_part.push(c);
+            
+            parts[curr_i].push(c);
+            println!("{}", parts[curr_i]);
         }
         return parts;
     }

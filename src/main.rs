@@ -29,14 +29,14 @@ fn main() {
 
     let args = Args::parse();
 
-    let file_parser = FileParser {
+    let mut file_parser = FileParser {
         rules: Vec::new(),
-    }
+    };
 
     // Open the file
     if let Err(error) = file_parser.parse_file(&args.filename)
     {
-        panic!();
+        panic!("{:?}", error.kind);
     }
 
     // Take the rules and build an NFA
@@ -63,8 +63,8 @@ fn main() {
         std::io::stdin().read_line(&mut to_check).expect("failed to readline");
         let to_check = to_check.trim().to_string();
 
-        if token = nfa.simulateAndGetToken(&to_check) {
-            println!("Result: Success");
+        if let Some(token) = nfa.simulateAndGetToken(&to_check) {
+            println!("Result: Success ({})", token);
         }
         else {
             println!("Result: Failure");

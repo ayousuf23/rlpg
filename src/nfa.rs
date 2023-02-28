@@ -119,7 +119,7 @@ impl NFANode {
             //println!("{}", index);
             if index >= chars.len()
             {
-                match curr_node.kind {
+                match &curr_node.kind {
                     NFANodeKind::EndWithToken(token) => return Some(token.to_string()),
                     NFANodeKind::End => panic!(),
                     _ => (),
@@ -168,7 +168,7 @@ impl NFA {
         }
 
         // Create start node
-        let start = Rc::new(Mutex::new(NFANode::new_start()));
+        let mut start = Rc::new(Mutex::new(NFANode::new_start()));
         
         for rule in rules {
             // Create parse tree
@@ -179,23 +179,24 @@ impl NFA {
             let mut nfa: NFA = NFABuilder::build(&parse_root).expect("Error");
 
             // Combine with start node
-            let nfa_start = nfa.start.as_ref().lock().unwrap();
+            let mut nfa_start = nfa.start.as_ref().lock().unwrap();
             nfa_start.kind = NFANodeKind::Intersection;
+            drop(nfa_start);
 
-            let nfa_end = nfa.end.as_ref().lock().unwrap();
+            let mut nfa_end = nfa.end.as_ref().lock().unwrap();
 
             // change end node to EndsWithToken
-            match rule.kind {
+            match &rule.kind {
                 crate::file_parser::RuleKind::Named(name) => nfa_end.kind = NFANodeKind::EndWithToken(name.to_string()),
                 crate::file_parser::RuleKind::Unnamed => {
                     nfa_end.kind = NFANodeKind::Intersection;
                     // Add transition to start
-                    nfa_end.add_transition_to(start, TransitionKind::Empty)
+                    nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty)
                 }
             }
 
             // Add transition from start to nfa_start
-            let start_unlocked = start.as_ref().lock().unwrap();
+            let mut start_unlocked = start.as_ref().lock().unwrap();
             start_unlocked.add_transition_to(nfa.start, TransitionKind::Empty);
         }
         return Some(NFA {
