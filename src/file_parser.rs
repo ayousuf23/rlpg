@@ -29,14 +29,14 @@ pub enum RuleKind {
 
 #[derive(Debug)]
 pub struct Rule {
-    kind: RuleKind,
-    regex: String,
-    action: Option<String>,
+    pub kind: RuleKind,
+    pub regex: String,
+    pub action: Option<String>,
 }
 
 
 pub struct FileParser {
-    rules: Vec<Rule>
+    pub rules: Vec<Rule>
 }
 
 impl FileParser {

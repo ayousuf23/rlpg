@@ -29,11 +29,20 @@ fn main() {
 
     let args = Args::parse();
 
+    let file_parser = FileParser {
+        rules: Vec::new(),
+    }
+
     // Open the file
-    if let Err(error) = FileParser::parse_file(&args.filename)
+    if let Err(error) = file_parser.parse_file(&args.filename)
     {
         panic!();
     }
+
+    // Take the rules and build an NFA
+    let nfa = NFA::build_from_rules(&file_parser.rules).unwrap();
+
+    // Simulate on text!
 
     /*let mut regex = String::new();
     println!("Enter regular expression: ");
@@ -46,6 +55,7 @@ fn main() {
 
     // Generate an NFA
     let mut nfa = NFABuilder::build(&parse_root).expect("Error");
+    */
 
     loop {
         println!("Enter a string to match: ");
@@ -53,13 +63,13 @@ fn main() {
         std::io::stdin().read_line(&mut to_check).expect("failed to readline");
         let to_check = to_check.trim().to_string();
 
-        if nfa.simulate(&to_check) {
+        if token = nfa.simulateAndGetToken(&to_check) {
             println!("Result: Success");
         }
         else {
             println!("Result: Failure");
         }
-    }*/
+    }
 
     //println!("{:?}", nfa);
 }
