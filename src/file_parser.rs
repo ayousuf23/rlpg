@@ -2,6 +2,8 @@ use std::fs::File;
 use std::io::{BufReader, BufRead, self};
 use std::path::Path;
 
+use crate::error::RlpgErr;
+
 #[derive(Debug, Clone)]
 pub enum FileParserErrorKind {
     FileDoesNotBeginWithSectionHeader,
@@ -18,6 +20,17 @@ pub struct FileParserError {
 impl FileParserError {
     pub fn new(kind: FileParserErrorKind) -> FileParserError {
         return FileParserError { kind };
+    }
+}
+
+impl RlpgErr for FileParserError {
+    pub fn get_err_message(&self) -> String {
+        return match self.kind {
+            FileParserErrorKind::FileDoesNotBeginWithSectionHeader => "The input file does not begin with a section header",
+            FileParserErrorKind::InvalidActionCode => "The action code is invalid",
+            FileParserErrorKind::InvalidRegex => "The regex is invalid",
+            FileParserErrorKind::InvalidRuleName => "The rule name is invalid",
+        }
     }
 }
 

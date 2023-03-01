@@ -17,6 +17,8 @@ use clap::Parser;
 
 pub mod node;
 
+pub mod error;
+
 mod tests;
 
 #[derive(Parser, Debug)]
