@@ -154,7 +154,7 @@ impl FileParser {
         let mut curr_i = 0;
 
         for c in line.chars() {
-            if c.is_whitespace() {  
+            if c.is_whitespace() && !(c == ' ' && escaped) {  
                 if parts[curr_i].len() > 0 {
                     if curr_i == 2 {
                         break;

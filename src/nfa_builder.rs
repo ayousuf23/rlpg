@@ -38,6 +38,8 @@ impl NFABuilder {
 
             if let None = first_start {
                 first_start = Some(Rc::clone(&child_nfa.start));
+            } else {
+                NFABuilder::node_change_kind_and_add_transition(&child_nfa.start, Some(NFANodeKind::Intersection), None);
             }
 
             if let Some(prev) = last_end {
@@ -95,6 +97,8 @@ impl NFABuilder {
             // Add a new start node 
             let mut new_start = NFANode::new_start();
 
+            NFABuilder::node_change_kind_and_add_transition(&nfa.start, Some(NFANodeKind::Intersection), None);
+
             // Add empty transition from new_start to end
             new_start.add_transition_to(Rc::clone(&nfa.end), TransitionKind::Empty, 1);
 
@@ -133,6 +137,9 @@ impl NFABuilder {
         for child_node in &node.children {
             // Build the child
             if let Some(built_child) = NFABuilder::build(&child_node) {
+                // Change start node to intersection
+                NFABuilder::node_change_kind_and_add_transition(&built_child.start, Some(NFANodeKind::Intersection), None);
+
                 // Change the end to an intersection
                 let mut built_child_end = built_child.end.lock().unwrap();
                 built_child_end.kind = NFANodeKind::Intersection;
@@ -177,5 +184,16 @@ impl NFABuilder {
         
         // Return an NFA
         return Some(nfa);
+    }
+
+    fn node_change_kind_and_add_transition(node: &Rc<Mutex<NFANode>>, new_kind: Option<NFANodeKind>, trans_to_add: Option<Transition>)
+    {
+        let mut n = node.as_ref().lock().unwrap();
+        if let Some(kind) = new_kind {
+            n.kind = kind;
+        }
+        if let Some(trans) = trans_to_add {
+            n.transitions.push(trans);
+        }
     }
 }

@@ -126,20 +126,25 @@ impl NFANode {
         let mut success = false;
         let mut stack: VecDeque<NFASimState> = VecDeque::new();
         stack.push_back(NFASimState { destination: node, start_i: 0, end_i: 0 });
+        let mut min_start_i = 0;
 
         while let Some(mut state) = stack.pop_back() {
+            if state.start_i < min_start_i {
+                continue;
+            }
+
             let mut curr_node = state.destination.as_ref().lock().unwrap();
 
             let mut char = None;
 
             if let NFANodeKind::EndWithToken(token) = &curr_node.kind  {
                
-                let lexeme = chars[state.start_i..state.end_i - 1].into_iter().collect();
-                println!("start: {}, end: {}, lexeme: {}, {}, {}", state.start_i, state.end_i, lexeme, chars[state.start_i], chars[state.end_i - 1]);
+                let lexeme = chars[state.start_i..state.end_i].into_iter().collect();
                 tokens.push(Token {name: token.to_string(), lexeme, line: 1, start_col: state.start_i, end_col: state.end_i - 1});
             }
             else if let NFANodeKind::Start = &curr_node.kind {
                 state.start_i = state.end_i;
+                min_start_i = state.end_i;
             }
 
             if state.end_i >= chars.len()
@@ -163,7 +168,7 @@ impl NFANode {
             curr_node.transitions.sort_by_key(|x| -x.priority);
             for trans in &mut curr_node.transitions {
                 let new_index = match trans.kind {
-                    TransitionKind::AnyChar if char.is_some() => state.end_i + 1,
+                    TransitionKind::AnyChar if char.is_some() && !char.unwrap().is_whitespace() => state.end_i + 1,
                     TransitionKind::Character(trans_char) if char.is_some() && trans_char == char.unwrap() => state.end_i + 1,
                     TransitionKind::Empty => state.end_i,
                     _ => continue,
