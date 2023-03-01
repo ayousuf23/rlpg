@@ -63,8 +63,13 @@ fn main() {
         std::io::stdin().read_line(&mut to_check).expect("failed to readline");
         let to_check = to_check.trim().to_string();
 
-        if let Some(token) = nfa.simulateAndGetToken(&to_check) {
-            println!("Result: Success ({})", token);
+        let (result, tokens) = nfa.simulateAndGetToken(&to_check);
+        for token in tokens {
+            println!("Token: {}", token);
+        }
+
+        if result {
+            println!("Result: Success");
         }
         else {
             println!("Result: Failure");

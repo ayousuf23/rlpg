@@ -106,7 +106,9 @@ impl NFANode {
         return false;
     }
 
-    pub fn simulateAndGetToken(node: Rc<Mutex<NFANode>>, chars: &Vec<char>, index: usize) -> Option<String> {
+    pub fn simulate_and_get_all_tokens(node: Rc<Mutex<NFANode>>, chars: &Vec<char>, index: usize) -> (bool, Vec<String>) {
+        let mut tokens: Vec<String> = Vec::new();
+        let mut success = false;
         let mut stack: VecDeque<(Rc<Mutex<NFANode>>, usize)> = VecDeque::new();
         stack.push_back((node, index));
 
@@ -115,23 +117,29 @@ impl NFANode {
 
             let mut char = None;
 
-            //println!("{:?}", curr_node.kind);
-            //println!("{}", index);
+            if let NFANodeKind::EndWithToken(token) = &curr_node.kind  {
+                tokens.push(token.to_string());
+            }
+
             if index >= chars.len()
             {
                 match &curr_node.kind {
-                    NFANodeKind::EndWithToken(token) => return Some(token.to_string()),
-                    NFANodeKind::End => panic!(),
+                    NFANodeKind::EndWithToken(token) => {
+                        success = true;
+                        break;
+                    },
+                    NFANodeKind::End => {
+                        success = true;
+                        break;
+                    },
                     _ => (),
                 }
             } else {
                 char = Some(chars[index]);
             }
-
             
             // See if there is a transition on char
             for trans in &mut curr_node.transitions {
-
                 let new_index = match trans.kind {
                     TransitionKind::AnyChar if char.is_some() => index + 1,
                     TransitionKind::Character(trans_char) if char.is_some() && trans_char == char.unwrap() => index + 1,
@@ -142,7 +150,7 @@ impl NFANode {
                 stack.push_back((Rc::clone(&trans.destination), new_index));
             }
         }
-        return None;
+        return (success, tokens);
     }
 
 }
@@ -155,11 +163,9 @@ impl NFA {
         return NFANode::simulate(Rc::clone(&self.start), &chars, 0);
     }
 
-    pub fn simulateAndGetToken(&self, string: &str) -> Option<String> {
+    pub fn simulateAndGetToken(&self, string: &str) -> (bool, Vec<String>) {
         let chars: Vec<char> = string.chars().collect();
-        /*let start = self.start.as_ref().lock().unwrap();
-        return start.simulate(&chars, 0);*/
-        return NFANode::simulateAndGetToken(Rc::clone(&self.start), &chars, 0);
+        return NFANode::simulate_and_get_all_tokens(Rc::clone(&self.start), &chars, 0);
     }
 
     pub fn build_from_rules(rules: &Vec<Rule>) -> Option<NFA> {
@@ -186,14 +192,11 @@ impl NFA {
             let mut nfa_end = nfa.end.as_ref().lock().unwrap();
 
             // change end node to EndsWithToken
-            match &rule.kind {
-                crate::file_parser::RuleKind::Named(name) => nfa_end.kind = NFANodeKind::EndWithToken(name.to_string()),
-                crate::file_parser::RuleKind::Unnamed => {
-                    nfa_end.kind = NFANodeKind::Intersection;
-                    // Add transition to start
-                    nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty)
-                }
+            if let crate::file_parser::RuleKind::Named(name) = &rule.kind {
+                nfa_end.kind = NFANodeKind::EndWithToken(name.to_string());
             }
+            nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty);
+
 
             // Add transition from start to nfa_start
             let mut start_unlocked = start.as_ref().lock().unwrap();

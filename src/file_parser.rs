@@ -69,17 +69,12 @@ impl FileParser {
                 continue;
             }
 
-            for item in FileParser::parse_line(trimmed) {
-                
-                // Convert the line to a rule
-                let rule = FileParser::parse_rule(&item);
-                if rule.is_err() {
-                    return Err(rule.unwrap_err());
-                }
-                self.rules.push(rule.unwrap());
+            let rule = FileParser::parse_rule(&line);
+            if rule.is_err() {
+                return Err(rule.unwrap_err());
             }
+            self.rules.push(rule.unwrap());
 
-            
             line.clear();
         }
 
@@ -156,17 +151,12 @@ impl FileParser {
         let mut curr_i = 0;
 
         for c in line.chars() {
-            println!("{}", c);
-            if c.is_whitespace() && !(c == ' ' && escaped) {  
-                println!("here");   
+            if c.is_whitespace() {  
                 if parts[curr_i].len() > 0 {
-                    // Go to next part
                     if curr_i == 2 {
-                        println!("hi");
-                        return parts;
+                        break;
                     }
                     curr_i += 1;
-                    //curr_part = &mut parts[curr_i];
                 }
                 continue;
             }
@@ -179,7 +169,6 @@ impl FileParser {
 
             
             parts[curr_i].push(c);
-            println!("{}", parts[curr_i]);
         }
         return parts;
     }

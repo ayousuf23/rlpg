@@ -1,3 +1,4 @@
 SECTION LEXER
 
-george "hello" s
+george hello
+char [a-zA-Z]
