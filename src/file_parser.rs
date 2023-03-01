@@ -32,8 +32,8 @@ pub struct Rule {
     pub kind: RuleKind,
     pub regex: String,
     pub action: Option<String>,
+    pub priority: i32,
 }
-
 
 pub struct FileParser {
     pub rules: Vec<Rule>
@@ -58,6 +58,7 @@ impl FileParser {
 
         line.clear();
 
+        let mut rule_counter = 1;
         while let Ok(result) = reader.read_line(&mut line) {
             if result == 0 {
                 break;
@@ -73,8 +74,10 @@ impl FileParser {
             if rule.is_err() {
                 return Err(rule.unwrap_err());
             }
-            self.rules.push(rule.unwrap());
-
+            let mut rule = rule.unwrap();
+            rule.priority = rule_counter;
+            rule_counter += 1;
+            self.rules.push(rule);
             line.clear();
         }
 
@@ -89,7 +92,7 @@ impl FileParser {
 
     fn parse_rule(line: &str) -> Result<Rule, FileParserError> {
         let parts = FileParser::parse_line(line);
-        println!("{:?}", parts);
+        //println!("{:?}", parts);
 
         // Get kind
         let kind = FileParser::determine_rule_kind(parts[0].to_string());
@@ -109,7 +112,7 @@ impl FileParser {
             return Err(action_code.unwrap_err());
         }
 
-        return Ok(Rule {kind: kind.unwrap(), regex: regex.unwrap(), action: action_code.unwrap()});
+        return Ok(Rule {kind: kind.unwrap(), regex: regex.unwrap(), action: action_code.unwrap(), priority: 1});
     }
 
     fn get_action_code(code: String) -> Result<Option<String>, FileParserError> {

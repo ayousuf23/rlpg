@@ -11,6 +11,8 @@ pub use crate::nfa_builder::NFABuilder;
 pub mod nfa;
 pub use crate::nfa::NFA;
 
+pub mod token;
+
 use clap::Parser;
 
 pub mod node;
@@ -43,20 +45,6 @@ fn main() {
     let nfa = NFA::build_from_rules(&file_parser.rules).unwrap();
 
     // Simulate on text!
-
-    /*let mut regex = String::new();
-    println!("Enter regular expression: ");
-    std::io::stdin().read_line(&mut regex).expect("failed to readline");
-    let regex = regex.trim().to_string();
-
-    // Create a regex parser
-    let mut parser = RegExParser::new(&regex);
-    let mut parse_root = parser.parse();
-
-    // Generate an NFA
-    let mut nfa = NFABuilder::build(&parse_root).expect("Error");
-    */
-
     loop {
         println!("Enter a string to match: ");
         let mut to_check = String::new();
@@ -65,7 +53,7 @@ fn main() {
 
         let (result, tokens) = nfa.simulateAndGetToken(&to_check);
         for token in tokens {
-            println!("Token: {}", token);
+            println!("Token: {} (Lexeme: {}, Line: {}, Columns: {}-{})", token.name, token.lexeme, token.line, token.start_col, token.end_col);
         }
 
         if result {

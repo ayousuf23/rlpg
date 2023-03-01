@@ -27,7 +27,6 @@ impl RegExParser<'_> {
             
         };
         parser.advance();
-        println!("{}", parser.current_char);
         parser
     }
 
@@ -327,7 +326,7 @@ impl RegExParser<'_> {
 
     fn does_char_require_escape(character: char) -> bool {
         return match character {
-            '+' | '*' | '?' | '-' | '(' | ')' | '.' | '[' | ']' | '|' | '\\' => true,
+            '+' | '*' | '?' | '-' | '(' | ')' | '.' | '[' | ']' | '|' | '\\' | '"' => true,
             _ => false
         }
     }

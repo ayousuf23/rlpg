@@ -42,10 +42,7 @@ impl NFABuilder {
 
             if let Some(prev) = last_end {
                 // Attatch the prev->end to current->start via empty transition
-                let trans = Transition {
-                    kind: TransitionKind::Empty,
-                    destination: Rc::clone(&child_nfa.start),
-                };
+                let trans = Transition::new(Rc::clone(&child_nfa.start), TransitionKind::Empty, 1);
                 let mut prev = prev.as_ref().lock().unwrap();
                 prev.transitions.push(trans);
                 prev.kind = NFANodeKind::Intersection;
@@ -82,6 +79,7 @@ impl NFABuilder {
             let trans = Transition {
                 kind: TransitionKind::Empty,
                 destination: Rc::clone(&child.start),
+                priority: 1,
             };
             let mut end = child.end.as_ref().lock().unwrap();
             end.transitions.push(trans);
@@ -98,10 +96,10 @@ impl NFABuilder {
             let mut new_start = NFANode::new_start();
 
             // Add empty transition from new_start to end
-            new_start.add_transition_to(Rc::clone(&nfa.end), TransitionKind::Empty);
+            new_start.add_transition_to(Rc::clone(&nfa.end), TransitionKind::Empty, 1);
 
             // Add empty transition from new_start to start
-            new_start.add_transition_to(nfa.start, TransitionKind::Empty);
+            new_start.add_transition_to(nfa.start, TransitionKind::Empty, 1);
 
             return Some(NFA {start: Rc::new(Mutex::new(new_start)), end: nfa.end});
         }
@@ -113,7 +111,7 @@ impl NFABuilder {
             let mut start = nfa.start.lock().unwrap();
 
             // Add empty transition from new_start to end
-            start.add_transition_to(Rc::clone(&nfa.end), TransitionKind::Empty);
+            start.add_transition_to(Rc::clone(&nfa.end), TransitionKind::Empty, 1);
             drop(start);
             return Some(nfa);
         }
@@ -139,10 +137,10 @@ impl NFABuilder {
                 let mut built_child_end = built_child.end.lock().unwrap();
                 built_child_end.kind = NFANodeKind::Intersection;
                 // Add empty transition from child end to end
-                built_child_end.add_transition_to(Rc::clone(&end), TransitionKind::Empty);
+                built_child_end.add_transition_to(Rc::clone(&end), TransitionKind::Empty, 1);
 
                 // Add empty transition to child start
-                start.add_transition_to(built_child.start, TransitionKind::Empty);
+                start.add_transition_to(built_child.start, TransitionKind::Empty, 1);
             }
         }
         drop(start);
@@ -172,6 +170,7 @@ impl NFABuilder {
         let transition = Transition {
             destination: Rc::clone(&nfa.end),
             kind: trans_kind,
+            priority: 1
         };
 
         nfa.start.as_ref().lock().unwrap().transitions.push(transition);
