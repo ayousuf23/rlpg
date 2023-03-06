@@ -32,6 +32,7 @@ pub struct NFANode {
     pub kind: NFANodeKind,
     pub data: String,
     pub transitions: Vec<Transition>,
+    pub id: i32,
 }
 
 #[derive(Debug)]
@@ -57,28 +58,22 @@ impl Transition {
 }
 
 impl NFANode {
-    pub fn new_regular<'a>(data: String) -> NFANode {
-        NFANode {
-            kind: NFANodeKind::Regular,
-            data,
-            transitions: Vec::new(),
-        }
+    pub fn new(kind: NFANodeKind, data: String) -> NFANode {
+        static counter: i32 = 0;
+        counter += 1;
+        NFANode { kind: kind, data: data, transitions: Vec::new(), id: counter - 1 }
     }
 
-    pub fn new_start<'a>() -> NFANode {
-        NFANode {
-            kind: NFANodeKind::Start,
-            data: "Start".to_string(),
-            transitions: Vec::new(),
-        }
+    pub fn new_regular(data: String) -> NFANode {
+        NFANode::new(NFANodeKind::Regular, data)
     }
 
-    pub fn new_end<'a>() -> NFANode {
-        NFANode {
-            kind: NFANodeKind::End,
-            data: "End".to_string(),
-            transitions: Vec::new(),
-        }
+    pub fn new_start() -> NFANode {
+        NFANode::new(NFANodeKind::Start, "Start".to_string())
+    }
+
+    pub fn new_end() -> NFANode {
+        NFANode::new(NFANodeKind::End, "End".to_string())
     }
 
     pub fn add_transition_to(&mut self, destination: Rc<Mutex<NFANode>>, transition_kind: TransitionKind, priority: i32)
