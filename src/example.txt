@@ -1,5 +1,5 @@
 SECTION LEXER
 
-george hello
-unnamed [\ ]
-char hell.
+char [a-zA-Z]
+plus plus
+minus \-

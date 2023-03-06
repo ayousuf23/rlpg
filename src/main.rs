@@ -5,6 +5,7 @@ pub mod regex_parser;
 mod node_kind;
 
 mod nfa_builder;
+use crate::error::RlpgErr;
 use crate::file_parser::FileParser;
 pub use crate::nfa_builder::NFABuilder;
 
@@ -20,6 +21,10 @@ pub mod node;
 pub mod error;
 
 mod tests;
+
+mod dfa_builder;
+
+use colored::*;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -40,7 +45,8 @@ fn main() {
     // Open the file
     if let Err(error) = file_parser.parse_file(&args.filename)
     {
-        panic!("{:?}", error.kind);
+        println!("{}", error.get_err_message().red());
+        return;
     }
 
     // Take the rules and build an NFA

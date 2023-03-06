@@ -15,6 +15,7 @@ pub struct Transition {
     pub destination: Rc<Mutex<NFANode>>,
     pub kind: TransitionKind,
     pub priority: i32,
+    pub id: i32,
 }
 
 #[derive(Eq,PartialEq, Debug)]
@@ -49,7 +50,9 @@ pub struct NFA {
 impl Transition {
     pub fn new(destination: Rc<Mutex<NFANode>>, kind: TransitionKind, priority: i32) -> Transition
     {
-        return Transition {destination, kind, priority};
+        static counter: i32 = 0;
+        counter += 1;
+        return Transition {destination, kind, priority, id: counter - 1};
     }
 }
 

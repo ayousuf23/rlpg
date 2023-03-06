@@ -24,13 +24,14 @@ impl FileParserError {
 }
 
 impl RlpgErr for FileParserError {
-    pub fn get_err_message(&self) -> String {
-        return match self.kind {
+    fn get_err_message(&self) -> String {
+        let msg = match self.kind {
             FileParserErrorKind::FileDoesNotBeginWithSectionHeader => "The input file does not begin with a section header",
             FileParserErrorKind::InvalidActionCode => "The action code is invalid",
             FileParserErrorKind::InvalidRegex => "The regex is invalid",
             FileParserErrorKind::InvalidRuleName => "The rule name is invalid",
-        }
+        };
+        return msg.to_string();
     }
 }
 
