@@ -2,7 +2,7 @@ use std::{rc::Rc, sync::Mutex, collections::VecDeque};
 
 use crate::{file_parser::Rule, regex_parser::RegExParser, NFABuilder, token::Token};
 
-#[derive(Eq,PartialEq, Debug)]
+#[derive(Eq,PartialEq, Debug, Hash, Clone)]
 pub enum TransitionKind {
     Empty,
     StrictEmpty,
@@ -54,6 +54,12 @@ impl Transition {
         static counter: i32 = 0;
         counter += 1;
         return Transition {destination, kind, priority, id: counter - 1};
+    }
+
+    pub fn copy(&self) -> Transition
+    {
+        return Transition {destination: Rc::clone(&self.destination), kind: self.kind,
+            priority: self.priority, id: self.id};
     }
 }
 
