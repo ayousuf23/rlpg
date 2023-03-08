@@ -49,40 +49,40 @@ pub struct NFA {
 }
 
 impl Transition {
-    pub fn new(destination: Rc<Mutex<NFANode>>, kind: TransitionKind, priority: i32) -> Transition
+    pub unsafe fn new(destination: Rc<Mutex<NFANode>>, kind: TransitionKind, priority: i32) -> Transition
     {
-        static counter: i32 = 0;
+        static mut counter: i32 = 0;
         counter += 1;
         return Transition {destination, kind, priority, id: counter - 1};
     }
 
     pub fn copy(&self) -> Transition
     {
-        return Transition {destination: Rc::clone(&self.destination), kind: self.kind,
+        return Transition {destination: Rc::clone(&self.destination), kind: self.kind.clone(),
             priority: self.priority, id: self.id};
     }
 }
 
 impl NFANode {
-    pub fn new(kind: NFANodeKind, data: String) -> NFANode {
-        static counter: i32 = 0;
+    pub unsafe fn new(kind: NFANodeKind, data: String) -> NFANode {
+        static mut counter: i32 = 0;
         counter += 1;
         NFANode { kind: kind, data: data, transitions: Vec::new(), id: counter - 1 }
     }
 
-    pub fn new_regular(data: String) -> NFANode {
+    pub unsafe fn new_regular(data: String) -> NFANode {
         NFANode::new(NFANodeKind::Regular, data)
     }
 
-    pub fn new_start() -> NFANode {
+    pub unsafe fn new_start() -> NFANode {
         NFANode::new(NFANodeKind::Start, "Start".to_string())
     }
 
-    pub fn new_end() -> NFANode {
+    pub unsafe fn new_end() -> NFANode {
         NFANode::new(NFANodeKind::End, "End".to_string())
     }
 
-    pub fn add_transition_to(&mut self, destination: Rc<Mutex<NFANode>>, transition_kind: TransitionKind, priority: i32)
+    pub unsafe fn add_transition_to(&mut self, destination: Rc<Mutex<NFANode>>, transition_kind: TransitionKind, priority: i32)
     {
         self.transitions.push(Transition::new(destination, transition_kind, priority));
     }
@@ -198,7 +198,7 @@ impl NFA {
         return NFANode::simulate_and_get_all_tokens(Rc::clone(&self.start), &chars, 0);
     }
 
-    pub fn build_from_rules(rules: &Vec<Rule>) -> Option<NFA> {
+    pub unsafe fn build_from_rules(rules: &Vec<Rule>) -> Option<NFA> {
         if rules.len() == 0 {
             return None;
         }

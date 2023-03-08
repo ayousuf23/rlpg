@@ -6,7 +6,7 @@ pub struct NFABuilder;
 
 impl NFABuilder {
 
-    pub fn build(node: &Node) -> Option<NFA> {
+    pub unsafe fn build(node: &Node) -> Option<NFA> {
         return match &node.kind {
             NodeKind::Base => NFABuilder::build_from_base(node),
             NodeKind::RegEx => NFABuilder::build_from_regex(node),
@@ -23,7 +23,7 @@ impl NFABuilder {
         };
     }
 
-    pub fn build_from_regex(node: &Node) -> Option<NFA> {
+    pub unsafe fn build_from_regex(node: &Node) -> Option<NFA> {
         // What we want to do is create a transition from the end of one node to the start of another
         let mut first_start = None;
         let mut last_end: Option<Rc<Mutex<NFANode>>> = None;
@@ -65,24 +65,20 @@ impl NFABuilder {
         None
     }
 
-    fn build_from_high(node: &Node) -> Option<NFA> {
+    unsafe fn build_from_high(node: &Node) -> Option<NFA> {
         return NFABuilder::build_or_of_child_nodes(node);
     }
 
-    pub fn build_from_middle(node: &Node) -> Option<NFA> {
+    pub unsafe fn build_from_middle(node: &Node) -> Option<NFA> {
         return NFABuilder::build(&node.children[0]);
     }
 
-    pub fn build_from_middle_plus(node: &Node) -> Option<NFA> {
+    pub unsafe fn build_from_middle_plus(node: &Node) -> Option<NFA> {
         // Build its child first
         let child_node = &node.children[0];
         if let Some(child) = NFABuilder::build(&child_node) {
             // Add a transition from end to start
-            let trans = Transition {
-                kind: TransitionKind::Empty,
-                destination: Rc::clone(&child.start),
-                priority: 1,
-            };
+            let trans = Transition::new(Rc::clone(&child.start), TransitionKind::Empty, 1);
             let mut end = child.end.as_ref().lock().unwrap();
             end.transitions.push(trans);
             drop(end);
@@ -91,7 +87,7 @@ impl NFABuilder {
         None
     }
 
-    pub fn build_from_star(node: &Node) -> Option<NFA> {
+    pub unsafe fn build_from_star(node: &Node) -> Option<NFA> {
         // Build like a plus node
         if let Some(nfa) = NFABuilder::build_from_middle_plus(node) {
             // Add a new start node 
@@ -110,7 +106,7 @@ impl NFABuilder {
         None
     }
 
-    pub fn build_from_question_mark(node: &Node) -> Option<NFA> {
+    pub unsafe fn build_from_question_mark(node: &Node) -> Option<NFA> {
         if let Some(nfa) = NFABuilder::build(node.children[0].as_ref()) {
             let mut start = nfa.start.lock().unwrap();
 
@@ -122,11 +118,11 @@ impl NFABuilder {
         None
     }
 
-    pub fn build_from_parentheses(node: &Node) -> Option<NFA> {
+    pub unsafe fn build_from_parentheses(node: &Node) -> Option<NFA> {
         return NFABuilder::build_from_regex(node);
     }
 
-    pub fn build_or_of_child_nodes(node: &Node) -> Option<NFA> {
+    pub unsafe fn build_or_of_child_nodes(node: &Node) -> Option<NFA> {
         // Create a new start node
         let mut real_start = Rc::new(Mutex::new(NFANode::new_start()));
         let mut start = real_start.lock().unwrap();
@@ -155,7 +151,7 @@ impl NFABuilder {
         return Some(NFA {start: real_start, end});
     }
 
-    pub fn build_from_base<'a>(node: &'a Node) -> Option<NFA> {
+    pub unsafe fn build_from_base<'a>(node: &'a Node) -> Option<NFA> {
         // Create a start node
         let start = Rc::new(Mutex::new(NFANode::new_start()));
 
@@ -174,11 +170,7 @@ impl NFABuilder {
         };
 
         // Create transition from start to end via letter
-        let transition = Transition {
-            destination: Rc::clone(&nfa.end),
-            kind: trans_kind,
-            priority: 1
-        };
+        let transition = Transition::new(Rc::clone(&nfa.end), trans_kind, 1);
 
         nfa.start.as_ref().lock().unwrap().transitions.push(transition);
         

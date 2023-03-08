@@ -53,16 +53,18 @@ fn main() {
     }
 
     // Take the rules and build an NFA
-    let nfa = NFA::build_from_rules(&file_parser.rules).unwrap();
+    unsafe {
+        let nfa = NFA::build_from_rules(&file_parser.rules).unwrap();
 
-    // Create a DFA 
-    let dfa_builder = dfa_builder::DFABuilder {
-        nodes: HashMap::new(),
-    };
-    let dfa = dfa_builder.convert_nfa_to_dfa(nfa);
+        // Create a DFA 
+        let mut dfa_builder = dfa_builder::DFABuilder {
+            nodes: HashMap::new(),
+        };
+        let dfa = dfa_builder.convert_nfa_to_dfa(nfa);
 
-    // Print 1st node
-    DFANode::print(dfa);
+        // Print 1st node
+        DFANode::print(dfa);
+    }
 
     // Simulate on text!
     /*loop {
