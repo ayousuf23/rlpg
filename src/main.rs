@@ -5,6 +5,8 @@ pub mod regex_parser;
 mod node_kind;
 
 mod nfa_builder;
+use std::collections::HashMap;
+
 use crate::error::RlpgErr;
 use crate::file_parser::FileParser;
 pub use crate::nfa_builder::NFABuilder;
@@ -25,6 +27,7 @@ mod tests;
 mod dfa_builder;
 
 use colored::*;
+use dfa_builder::DFANode;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -52,8 +55,17 @@ fn main() {
     // Take the rules and build an NFA
     let nfa = NFA::build_from_rules(&file_parser.rules).unwrap();
 
+    // Create a DFA 
+    let dfa_builder = dfa_builder::DFABuilder {
+        nodes: HashMap::new(),
+    };
+    let dfa = dfa_builder.convert_nfa_to_dfa(nfa);
+
+    // Print 1st node
+    DFANode::print(dfa);
+
     // Simulate on text!
-    loop {
+    /*loop {
         println!("Enter a string to match: ");
         let mut to_check = String::new();
         std::io::stdin().read_line(&mut to_check).expect("failed to readline");
@@ -70,7 +82,7 @@ fn main() {
         else {
             println!("Result: Failure");
         }
-    }
+    }*/
 
     //println!("{:?}", nfa);
 }

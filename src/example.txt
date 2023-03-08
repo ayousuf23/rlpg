@@ -1,5 +1,3 @@
 SECTION LEXER
 
-char [a-zA-Z]
-plus plus
-minus \-
+char hello
