@@ -6,7 +6,7 @@ pub struct DFASimulator;
 
 impl DFASimulator {
     
-    pub fn simulate_dfa(node: Rc<Mutex<DFANode>>, seq: Vec<char>)
+    pub unsafe fn simulate_dfa(node: *mut DFANode, seq: Vec<char>)
     {
         let mut index = 0;
         // Lock the node
@@ -14,16 +14,14 @@ impl DFASimulator {
 
         while index <= seq.len() - 2
         {
-            let mut locked = next.lock().unwrap();
-
+            println!("{:?}", (*next).states);
+            println!("{:?}", (*next).raw_transitions);
             // Get transition for any char or next char
-            if let Some(dest) = locked.transitions.remove(&TransitionKind::Character(seq[index]))
+            if let Some(dest) = (*next).raw_transitions.remove(&TransitionKind::Character(seq[index]))
             {
-                drop(locked);
                 next = dest;
             }
-            else if let Some(dest) = locked.transitions.remove(&TransitionKind::AnyChar) {
-                drop(locked);
+            else if let Some(dest) = (*next).raw_transitions.remove(&TransitionKind::AnyChar) {
                 next = dest;
             }
             else {
@@ -34,6 +32,6 @@ impl DFASimulator {
         }
 
         // Print last node
-        DFANode::print(next);
+        println!("{:?}", (*next).states);
     }
 }

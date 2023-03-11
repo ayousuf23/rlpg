@@ -63,8 +63,9 @@ fn main() {
         // Create a DFA 
         let mut dfa_builder = dfa_builder::DFABuilder {
             nodes: HashMap::new(),
+            raw_nodes: HashMap::new(),
         };
-        let dfa = dfa_builder.convert_nfa_to_dfa(nfa);
+        let dfa = dfa_builder.convert_nfa_to_dfa_raw(nfa);
 
         // Print 1st node
         //DFANode::print(dfa);

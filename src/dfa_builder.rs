@@ -9,19 +9,20 @@ use crate::nfa::{NFA, NFANode, TransitionKind};
 
 pub struct DFABuilder {
     pub nodes: HashMap<String, Rc<Mutex<DFANode>>>, // Map Node ID to backing store
-    pub raw_nodes: HashMap<String, *const DFANode>,
+    pub raw_nodes: HashMap<String, *mut DFANode>,
 }
 
 pub struct DFANode {
     pub states: HashSet<i32>,
     pub nodes: Vec<Rc<Mutex<NFANode>>>,
     pub transitions: HashMap<TransitionKind, Rc<Mutex<DFANode>>>,
+    pub raw_transitions: HashMap<TransitionKind, *mut DFANode>,
 }
 
 impl DFANode {
     pub fn new(states: HashSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>) -> DFANode
     {
-        DFANode { states: states, nodes, transitions: HashMap::new()}
+        DFANode { states: states, nodes, transitions: HashMap::new(), raw_transitions: HashMap::new()}
     }
 
     pub fn print(node: Rc<Mutex<DFANode>>)
@@ -33,19 +34,41 @@ impl DFANode {
 
 impl DFABuilder {
 
-    pub unsafe fn convert_nfa_to_dfa_raw(&mut self, nfa: NFA) -> *const DFANode
+    pub unsafe fn convert_nfa_to_dfa_raw(&mut self, nfa: NFA) -> *mut DFANode
     {
         // Create q0
-        let q0 = self.single_nfa_to_dfa_node_raw(nfa.start);
+        let mut q0 = self.single_nfa_to_dfa_node_raw(nfa.start);
+        let mut q0_trans = self.dfa_raw_get_trans(q0);
         // Get epsilon closure of q0
-        let q0 = self.get_epsilon_raw(q0);
+        if let Some(q0_empty_nodes) = q0_trans.get_mut(&TransitionKind::Empty)
+        {
+            for node in &(*q0).nodes
+            {
+                q0_empty_nodes.push(Rc::clone(node));
+            }
+            q0 = self.get_epsilon_raw(q0_empty_nodes);
+        }
 
-        let work_list: Vec<*const DFANode> = Vec::new();
-        let seen: HashSet<*const DFANode> = HashSet::new();
+        let mut work_list: Vec<*mut DFANode> = Vec::new();
+        let mut seen: HashSet<*const DFANode> = HashSet::new();
 
         while let Some(node) = work_list.pop()
         {
             let transitions = self.dfa_raw_get_trans(node);
+
+            for trans in transitions
+            {
+                if trans.0 != TransitionKind::Empty {
+                    // Get the epsilon closure
+                    let epsilon = self.get_epsilon_raw(&trans.1);
+                    (*node).raw_transitions.insert(trans.0, epsilon);
+
+                    if !seen.insert(epsilon)
+                    {
+                        work_list.push(epsilon);
+                    }
+                }
+            }
 
         }
 
@@ -152,12 +175,12 @@ impl DFABuilder {
         return self.combine_dfa_nodes(&nodes);
     }
 
-    unsafe fn get_epsilon_raw(&mut self, node: *const DFANode) -> *const DFANode
+    unsafe fn get_epsilon_raw(&mut self, node: &Vec<Rc<Mutex<NFANode>>>) -> *mut DFANode
     {
         let mut seen: HashSet<i32> = HashSet::new();
         let mut nodes: Vec<Rc<Mutex<NFANode>>> = Vec::new();
         let mut stack: Vec<Rc<Mutex<NFANode>>> = Vec::new();
-        for nfa_node in &(*node).nodes {
+        for nfa_node in node {
             stack.push(Rc::clone(nfa_node));
         }
 
@@ -288,7 +311,7 @@ impl DFABuilder {
         return dfa_node;
     }
 
-    fn to_dfa_node_raw(&mut self, ids: HashSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>) -> *const DFANode
+    fn to_dfa_node_raw(&mut self, ids: HashSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>) -> *mut DFANode
     {
         // First compute the id
         let id = DFABuilder::compute_dfa_node_id(&ids);
@@ -312,7 +335,7 @@ impl DFABuilder {
         return self.to_dfa_node(states, nodes);
     }
 
-    fn single_nfa_to_dfa_node_raw(&mut self, node: Rc<Mutex<NFANode>>) -> *const DFANode
+    fn single_nfa_to_dfa_node_raw(&mut self, node: Rc<Mutex<NFANode>>) -> *mut DFANode
     {
         let locked_node = node.lock().unwrap();
         let mut states: HashSet<i32> = HashSet::new();
