@@ -7,6 +7,8 @@ mod node_kind;
 mod nfa_builder;
 use std::collections::HashMap;
 
+use crate::dfa_builder::DFABuilder;
+use crate::dfa_simulator::DFASimulator;
 use crate::error::RlpgErr;
 use crate::file_parser::FileParser;
 pub use crate::nfa_builder::NFABuilder;
@@ -25,6 +27,8 @@ pub mod error;
 mod tests;
 
 mod dfa_builder;
+
+mod dfa_simulator;
 
 use colored::*;
 use dfa_builder::DFANode;
@@ -63,7 +67,14 @@ fn main() {
         let dfa = dfa_builder.convert_nfa_to_dfa(nfa);
 
         // Print 1st node
-        DFANode::print(dfa);
+        //DFANode::print(dfa);
+
+        println!("Enter a string to match: ");
+        let mut to_check = String::new();
+        std::io::stdin().read_line(&mut to_check).expect("failed to readline");
+        let to_check = to_check.trim().to_string();
+
+        DFASimulator::simulate_dfa(dfa, to_check.chars().collect());
     }
 
     // Simulate on text!
