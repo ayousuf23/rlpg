@@ -4,6 +4,8 @@ use std::sync::Mutex;
 use std::collections::VecDeque;
 use std::collections::HashSet;
 
+use crate::nfa;
+use crate::nfa::NFANodeKind;
 use crate::nfa::Transition;
 use crate::nfa::{NFA, NFANode, TransitionKind};
 
@@ -12,17 +14,24 @@ pub struct DFABuilder {
     pub raw_nodes: HashMap<String, *mut DFANode>,
 }
 
+#[derive(Debug)]
+pub enum DFANodeKind {
+    Nonacccept,
+    Accept(String),
+}
+
 pub struct DFANode {
     pub states: HashSet<i32>,
     pub nodes: Vec<Rc<Mutex<NFANode>>>,
     pub transitions: HashMap<TransitionKind, Rc<Mutex<DFANode>>>,
     pub raw_transitions: HashMap<TransitionKind, *mut DFANode>,
+    pub kind: DFANodeKind,
 }
 
 impl DFANode {
-    pub fn new(states: HashSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>) -> DFANode
+    pub fn new(states: HashSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>, kind: DFANodeKind) -> DFANode
     {
-        DFANode { states: states, nodes, transitions: HashMap::new(), raw_transitions: HashMap::new()}
+        DFANode { states: states, nodes, transitions: HashMap::new(), raw_transitions: HashMap::new(), kind}
     }
 
     pub fn print(node: Rc<Mutex<DFANode>>)
@@ -44,13 +53,15 @@ impl DFABuilder {
         {
             for node in &(*q0).nodes
             {
-                q0_empty_nodes.push(Rc::clone(node));
+                q0_empty_nodes.push((Rc::clone(node), i32::MIN));
             }
             q0 = self.get_epsilon_raw(q0_empty_nodes);
         }
 
         let mut work_list: Vec<*mut DFANode> = Vec::new();
+        work_list.push(q0);
         let mut seen: HashSet<*const DFANode> = HashSet::new();
+        seen.insert(q0);
 
         while let Some(node) = work_list.pop()
         {
@@ -63,7 +74,7 @@ impl DFABuilder {
                     let epsilon = self.get_epsilon_raw(&trans.1);
                     (*node).raw_transitions.insert(trans.0, epsilon);
 
-                    if !seen.insert(epsilon)
+                    if seen.insert(epsilon)
                     {
                         work_list.push(epsilon);
                     }
@@ -75,7 +86,7 @@ impl DFABuilder {
         return q0;
     }
 
-    pub fn convert_nfa_to_dfa(&mut self, nfa: NFA) -> Rc<Mutex<DFANode>> {
+    /*pub fn convert_nfa_to_dfa(&mut self, nfa: NFA) -> Rc<Mutex<DFANode>> {
         // Convert start node to a single DFA node
         let q0: Rc<Mutex<DFANode>> = self.single_nfa_to_dfa_node(nfa.start);
         let q0 = self.get_epsilon_closure(q0);
@@ -130,9 +141,9 @@ impl DFABuilder {
             }
         }
         return q0;
-    }
+    }*/
 
-    fn get_epsilon_closure(&mut self, node: Rc<Mutex<DFANode>>) -> Rc<Mutex<DFANode>>
+    /*fn get_epsilon_closure(&mut self, node: Rc<Mutex<DFANode>>) -> Rc<Mutex<DFANode>>
     {
         let mut seen: HashSet<String> = HashSet::new();
         let mut nodes: Vec<Rc<Mutex<DFANode>>> = Vec::new();
@@ -173,24 +184,35 @@ impl DFABuilder {
 
         // Combine dfa nodes in nodes
         return self.combine_dfa_nodes(&nodes);
-    }
+    }*/
 
-    unsafe fn get_epsilon_raw(&mut self, node: &Vec<Rc<Mutex<NFANode>>>) -> *mut DFANode
+    unsafe fn get_epsilon_raw(&mut self, node: &Vec<(Rc<Mutex<NFANode>>, i32)>) -> *mut DFANode
     {
         let mut seen: HashSet<i32> = HashSet::new();
         let mut nodes: Vec<Rc<Mutex<NFANode>>> = Vec::new();
-        let mut stack: Vec<Rc<Mutex<NFANode>>> = Vec::new();
-        for nfa_node in node {
-            stack.push(Rc::clone(nfa_node));
+        let mut stack: Vec<(Rc<Mutex<NFANode>>, i32)> = Vec::new();
+        let mut max_priority = i32::MIN;
+        let mut kind = DFANodeKind::Nonacccept;
+
+        for (nfa_node, priority) in node {
+            stack.push((Rc::clone(nfa_node), *priority));
         }
 
-        while let Some(front) = stack.pop()
+        while let Some((front, priority)) = stack.pop()
         {
             let locked = front.lock().unwrap();
             if !seen.insert(locked.id)
             {
                 // The node was already seen
                 continue;
+            }
+
+            // Check whether this is an accepting state or not
+            if let NFANodeKind::EndWithToken(token) = &locked.kind {
+                if priority > max_priority {
+                    max_priority = priority;
+                    kind = DFANodeKind::Accept(token.to_string());
+                }
             }
 
             // Add node to nodes
@@ -201,18 +223,18 @@ impl DFABuilder {
             for trans in &locked.transitions
             {
                 if let TransitionKind::Empty = trans.kind {
-                    stack.push(trans.destination.clone());
+                    stack.push((trans.destination.clone(), trans.priority));
                 }
             }
 
         }
-        return self.to_dfa_node_raw(seen, nodes);
+        return self.to_dfa_node_raw(seen, nodes, kind);
     }
 
     // Get the transitions of this node based on underlying NFA transitions
-    unsafe fn dfa_raw_get_trans(&mut self, node: *const DFANode) -> HashMap<TransitionKind, Vec<Rc<Mutex<NFANode>>>>
+    unsafe fn dfa_raw_get_trans(&mut self, node: *const DFANode) -> HashMap<TransitionKind, Vec<(Rc<Mutex<NFANode>>, i32)>>
     {
-        let mut transitions: HashMap<TransitionKind, Vec<Rc<Mutex<NFANode>>>> = HashMap::new();
+        let mut transitions: HashMap<TransitionKind, Vec<(Rc<Mutex<NFANode>>, i32)>> = HashMap::new();
         for nfa_node in &(*node).nodes
         {
             // Add a transition for each transition of each nfa_node
@@ -221,11 +243,11 @@ impl DFABuilder {
             {
                 if let Some(dests) = transitions.get_mut(&trans.kind)
                 {
-                    dests.push(Rc::clone(&trans.destination));
+                    dests.push((Rc::clone(&trans.destination), trans.priority));
                 }
                 else {
                     let mut dests = Vec::new();
-                    dests.push(Rc::clone(&trans.destination));
+                    dests.push((Rc::clone(&trans.destination), trans.priority));
                     transitions.insert(trans.kind.clone(), dests);
                 }
             }
@@ -233,85 +255,7 @@ impl DFABuilder {
         return transitions;
     }
 
-    // Get all transitions from node 
-    fn dfa_node_fill_transitions(&mut self, node: &Rc<Mutex<DFANode>>)
-    {
-        let mut seen_map: HashMap<TransitionKind, DFANode> = HashMap::new();
-        let mut seen_nodes: HashMap<TransitionKind, String> = HashMap::new();
-        // Store which node to check next
-        let mut stack: Vec<Rc<Mutex<NFANode>>> = Vec::new();
-        let mut locked = node.lock().unwrap();
-        for backing_node in &locked.nodes {
-            stack.push(Rc::clone(backing_node));
-        }
-
-        // Create a stack of transitions
-        let mut trans_stack: Vec<Transition> = Vec::new();
-
-        // Get first item from stack
-        while let Some(top) = stack.pop()
-        {
-            // Lock it
-            let locked_top = top.lock().unwrap();
-
-            // Look through its transitions
-            for trans in &locked_top.transitions
-            {
-                if trans.kind == TransitionKind::Empty {continue;}
-                trans_stack.push(trans.copy());
-            }
-        }
-
-        // Now look through the transition stack
-        for trans in trans_stack
-        {
-            // Check if the destination was seen
-            let dest = trans.destination.lock().unwrap();
-            if let Some(trans_kind_seen) = seen_map.get_mut(&trans.kind)
-            {
-                if trans_kind_seen.states.insert(dest.id)
-                {
-                    drop(dest);
-                    trans_kind_seen.nodes.push(trans.destination);
-                }
-            } else {
-                let mut new_dfa = DFANode::new(HashSet::new(), Vec::new());
-                let mut new_set: HashSet<i32> = HashSet::new();
-                new_set.insert(dest.id);
-                drop(dest);
-                new_dfa.nodes.push(trans.destination);
-                seen_map.insert(trans.kind, new_dfa);
-            }
-        }
-
-        // Finally, create a node for each transition kind
-        self.add_transitions_to_node(&mut locked, seen_map);
-    }
-
-    fn add_transitions_to_node(&mut self, node: &mut DFANode, trans: HashMap<TransitionKind, DFANode>)
-    {
-        for (key, value) in trans
-        {
-            // Check if there exists the same DFA node already
-            let dfa = self.to_dfa_node(value.states, value.nodes);
-            node.transitions.insert(key.clone(), dfa);
-        }
-    }
-
-    fn to_dfa_node(&mut self, ids: HashSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>) -> Rc<Mutex<DFANode>>
-    {
-        // First compute the id
-        let id = DFABuilder::compute_dfa_node_id(&ids);
-        if let Some(dfa_node) = self.nodes.get(&id)
-        {
-            return Rc::clone(dfa_node);
-        }
-        let dfa_node = Rc::new(Mutex::new(DFANode::new(ids, nodes)));
-        self.nodes.insert(id, Rc::clone(&dfa_node));
-        return dfa_node;
-    }
-
-    fn to_dfa_node_raw(&mut self, ids: HashSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>) -> *mut DFANode
+    fn to_dfa_node_raw(&mut self, ids: HashSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>, kind: DFANodeKind) -> *mut DFANode
     {
         // First compute the id
         let id = DFABuilder::compute_dfa_node_id(&ids);
@@ -319,31 +263,24 @@ impl DFABuilder {
         {
             return dfa_node.clone();
         }
-        let dfa_node = Box::into_raw(Box::new(DFANode::new(ids, nodes)));
+        let dfa_node = Box::into_raw(Box::new(DFANode::new(ids, nodes, kind)));
         self.raw_nodes.insert(id, dfa_node);
         return dfa_node;
-    }
-
-    fn single_nfa_to_dfa_node(&mut self, node: Rc<Mutex<NFANode>>) -> Rc<Mutex<DFANode>>
-    {
-        let locked_node = node.lock().unwrap();
-        let mut states: HashSet<i32> = HashSet::new();
-        states.insert(locked_node.id);
-        drop(locked_node);
-        let mut nodes = Vec::new();
-        nodes.push(node);
-        return self.to_dfa_node(states, nodes);
     }
 
     fn single_nfa_to_dfa_node_raw(&mut self, node: Rc<Mutex<NFANode>>) -> *mut DFANode
     {
         let locked_node = node.lock().unwrap();
+        let kind = match &locked_node.kind {
+            NFANodeKind::EndWithToken(token) => DFANodeKind::Accept(token.to_string()),
+            _ => DFANodeKind::Nonacccept,
+        };
         let mut states: HashSet<i32> = HashSet::new();
         states.insert(locked_node.id);
         drop(locked_node);
         let mut nodes = Vec::new();
         nodes.push(node);
-        return self.to_dfa_node_raw(states, nodes);
+        return self.to_dfa_node_raw(states, nodes, kind);
     }
 
     fn compute_dfa_node_id(node_ids: &HashSet<i32>) -> String
@@ -355,25 +292,5 @@ impl DFABuilder {
             id.push_str(&format);
         }
         return id;
-    }
-
-    fn combine_dfa_nodes(&mut self, nodes: &Vec<Rc<Mutex<DFANode>>>) -> Rc<Mutex<DFANode>>
-    {
-        let mut ids: HashSet<i32> = HashSet::new();
-        let mut nfa_nodes: Vec<Rc<Mutex<NFANode>>> = Vec::new();
-
-        for item in nodes {
-            // Lock it
-            let lock = item.lock().unwrap();
-            for sub_node in &lock.nodes {
-                let locked_sub_node = sub_node.lock().unwrap();
-                if !ids.insert(locked_sub_node.id) {
-                    drop(locked_sub_node);
-                    nfa_nodes.push(Rc::clone(sub_node));
-                }
-            }
-        }
-
-        return self.to_dfa_node(ids, nfa_nodes);
     }
 }

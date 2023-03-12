@@ -12,7 +12,7 @@ impl DFASimulator {
         // Lock the node
         let mut next = node;
 
-        while index <= seq.len() - 2
+        while index <= seq.len() - 1
         {
             println!("{:?}", (*next).states);
             println!("{:?}", (*next).raw_transitions);
@@ -32,6 +32,6 @@ impl DFASimulator {
         }
 
         // Print last node
-        println!("{:?}", (*next).states);
+        println!("{:?}", (*next).kind);
     }
 }

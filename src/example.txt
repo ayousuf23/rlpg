@@ -1,3 +1,4 @@
 SECTION LEXER
 
-char hello
+char hi
+charx hi+
