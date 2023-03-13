@@ -33,6 +33,10 @@ mod dfa_simulator;
 use colored::*;
 use dfa_builder::DFANode;
 
+mod table_dfa_builder;
+
+mod code_gen;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {

@@ -1,4 +1,4 @@
 SECTION LEXER
 
 char hi
-charx hi+
+charx hi

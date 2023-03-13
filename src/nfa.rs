@@ -219,14 +219,19 @@ impl NFA {
             nfa_start.kind = NFANodeKind::Intersection;
             drop(nfa_start);
 
-            let mut nfa_end = nfa.end.as_ref().lock().unwrap();
-
-            // change end node to EndsWithToken
+            // Create a new end node
+            let mut new_nfa_end = NFANode::new_end();
             if let crate::file_parser::RuleKind::Named(name) = &rule.kind {
-                nfa_end.kind = NFANodeKind::EndWithToken(name.to_string());
+                new_nfa_end.kind = NFANodeKind::EndWithToken(name.to_string());
+            } else {
+                new_nfa_end.kind = NFANodeKind::End;
             }
-            nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty, rule.priority);
-
+            new_nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty, rule.priority);
+            
+            let new_nfa_end = Rc::new(Mutex::new(new_nfa_end));
+            let mut nfa_end = nfa.end.as_ref().lock().unwrap();
+            nfa_end.add_transition_to(new_nfa_end, TransitionKind::Empty, rule.priority);
+            nfa_end.kind = NFANodeKind::Intersection;
 
             // Add transition from start to nfa_start
             let mut start_unlocked = start.as_ref().lock().unwrap();
