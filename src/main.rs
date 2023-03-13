@@ -7,6 +7,7 @@ mod node_kind;
 mod nfa_builder;
 use std::collections::HashMap;
 
+use crate::code_gen::CodeGen;
 use crate::dfa_builder::DFABuilder;
 use crate::dfa_simulator::DFASimulator;
 use crate::error::RlpgErr;
@@ -15,6 +16,7 @@ pub use crate::nfa_builder::NFABuilder;
 
 pub mod nfa;
 pub use crate::nfa::NFA;
+use crate::table_dfa_builder::TableDFABuilder;
 
 pub mod token;
 
@@ -80,27 +82,25 @@ fn main() {
         let to_check = to_check.trim().to_string();
 
         DFASimulator::simulate_dfa(dfa, to_check.chars().collect());
+
+        // Generate table dfa
+        /*let mut table_builder = TableDFABuilder {
+            mapping: HashMap::new(),
+            node_counter: 1,
+        };
+
+        let table = table_builder.build_table_dfa(dfa);
+
+        println!("{}", table.transitions.len());
+
+        // Code gen
+        let mut code_gen = CodeGen {
+            table: table,
+            curr_state_name: "curr".to_string(),
+        };
+
+        
+
+        println!("{}", code_gen.create_transition_function())*/
     }
-
-    // Simulate on text!
-    /*loop {
-        println!("Enter a string to match: ");
-        let mut to_check = String::new();
-        std::io::stdin().read_line(&mut to_check).expect("failed to readline");
-        let to_check = to_check.trim().to_string();
-
-        let (result, tokens) = nfa.simulateAndGetToken(&to_check);
-        for token in tokens {
-            println!("Token: {} (Lexeme: {}, Line: {}, Columns: {}-{})", token.name, token.lexeme, token.line, token.start_col, token.end_col);
-        }
-
-        if result {
-            println!("Result: Success");
-        }
-        else {
-            println!("Result: Failure");
-        }
-    }*/
-
-    //println!("{:?}", nfa);
 }

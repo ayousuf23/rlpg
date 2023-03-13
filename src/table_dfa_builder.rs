@@ -1,9 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}};
 
 use crate::{nfa::TransitionKind, dfa_builder::{DFANode, DFANodeKind}};
 
 pub struct TableDFA {
-    pub transitions: HashMap<(i32, TransitionKind), i32>,
+    pub transitions: HashMap<i32, HashMap<TransitionKind, i32>>,
     pub accepting_states: HashMap<i32, String>,
 }
 
@@ -18,8 +18,8 @@ impl TableDFA {
 }
 
 pub struct TableDFABuilder {
-    mapping: HashMap<*const DFANode, i32>,
-    node_counter: i32,
+    pub mapping: HashMap<*const DFANode, i32>,
+    pub node_counter: i32,
 }
 
 impl TableDFABuilder {
@@ -51,7 +51,14 @@ impl TableDFABuilder {
             {
                 let dest_id = self.get_node_id(*dest);
                 // Add a transition to the table
-                table.transitions.insert((id, trans_kind.clone()), dest_id);
+                if let Some(dfa_trans) = table.transitions.get_mut(&id)
+                {
+                    dfa_trans.insert(trans_kind.clone(), dest_id);
+                } else {
+                    let mut dfa_trans = HashMap::new();
+                    dfa_trans.insert(trans_kind.clone(), dest_id);
+                    table.transitions.insert(id, dfa_trans);
+                }
 
                 // Add destination to stack
                 stack.push(*dest);
