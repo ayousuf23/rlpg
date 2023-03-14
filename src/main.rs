@@ -81,10 +81,10 @@ fn main() {
         std::io::stdin().read_line(&mut to_check).expect("failed to readline");
         let to_check = to_check.trim().to_string();
 
-        DFASimulator::simulate_dfa(dfa, to_check.chars().collect());
+        //DFASimulator::simulate_dfa(dfa, to_check.chars().collect());
 
         // Generate table dfa
-        /*let mut table_builder = TableDFABuilder {
+        let mut table_builder = TableDFABuilder {
             mapping: HashMap::new(),
             node_counter: 1,
         };
@@ -101,6 +101,6 @@ fn main() {
 
         
 
-        println!("{}", code_gen.create_transition_function())*/
+        println!("{}", code_gen.generate_lexer());
     }
 }
