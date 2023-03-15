@@ -6,6 +6,7 @@ mod node_kind;
 
 mod nfa_builder;
 use std::collections::HashMap;
+use std::path::Path;
 
 use crate::code_gen::CodeGen;
 use crate::dfa_builder::DFABuilder;
@@ -76,10 +77,10 @@ fn main() {
         // Print 1st node
         //DFANode::print(dfa);
 
-        println!("Enter a string to match: ");
+        /*println!("Enter a string to match: ");
         let mut to_check = String::new();
         std::io::stdin().read_line(&mut to_check).expect("failed to readline");
-        let to_check = to_check.trim().to_string();
+        let to_check = to_check.trim().to_string();*/
 
         //DFASimulator::simulate_dfa(dfa, to_check.chars().collect());
 
@@ -91,16 +92,19 @@ fn main() {
 
         let table = table_builder.build_table_dfa(dfa);
 
-        println!("{}", table.transitions.len());
-
         // Code gen
         let mut code_gen = CodeGen {
             table: table,
             curr_state_name: "curr".to_string(),
         };
 
-        
+        // Dir
+        if let Ok(path) = std::env::current_dir() {
+            let cur_dir = path.join(Path::new("result.rs"));
 
-        println!("{}", code_gen.generate_lexer());
+            code_gen.generate_lexer(cur_dir.to_str().unwrap());
+        }
+
+       
     }
 }

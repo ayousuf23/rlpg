@@ -11,13 +11,18 @@ pub struct CodeGen
 
 impl CodeGen {
 
-    fn write_to_file(path: String, text: String)
+    fn write_to_file(path: &str, text: String)
     {
-        let mut file = File::create(path)?;
-        file.write_all(text.as_bytes());
+        if let Ok(mut file) = File::create(path)
+        {
+            if let Err(err) = file.write_all(text.as_bytes())
+            {
+
+            }
+        }   
     }
 
-    pub fn generate_lexer(&mut self) -> String
+    pub fn generate_lexer(&mut self, path: &str)
     {
         let mut text = self.create_transition_kind();
         text += "\n";
@@ -26,7 +31,23 @@ impl CodeGen {
         text += &self.create_transition_function();
         text += "\n";
         text += &self.create_parse_function();
-        return text;
+        text += "\n";
+        text += &self.create_main_fn();
+        CodeGen::write_to_file(path, text);
+    }
+
+    fn create_main_fn(&self) -> String
+    {
+        return
+"pub fn main()
+{
+    println!(\"Enter a string to match: \");
+    let mut to_check = String::new();
+    std::io::stdin().read_line(&mut to_check).expect(\"failed to readline\");
+    let to_check = to_check.trim().to_string();
+    let result = parse(to_check);
+    println!(\"{:?}\", result);
+}".to_string();
     }
 
     /*pub fn parse(text: String) -> Vec<String>
@@ -54,30 +75,30 @@ impl CodeGen {
 
     pub fn create_parse_function(&mut self) -> String
     {
-        "pub fn parse(text: String) -> Vec<String> 
+"pub fn parse(text: String) -> Vec<String> 
+{
+    let mut curr_state = 1;
+    let seq: Vec<char> = text.chars().collect();
+    let mut index = 0;
+    let mut tokens: Vec<String> = Vec::new();
+    while index < seq.len() {
+        // Check if accepting state
+        if let Some(token) = is_accepting(curr_state)
         {
-            let mut curr_state = 1;
-            let seq: Vec<char> = text.chars().collect();
-            let mut index = 0;
-            let mut tokens: Vec<String> = Vec::new();
-            while index < seq.len() {
-                // Check if accepting state
-                if let Some(token) = is_accepting(curr_state)
-                {
-                    tokens.push(token);
-                }
-                
-                // Perform transition or error
-                let trans_kind = TransitionKind::Character(seq[index]);
-                curr_state = transition(curr_state, trans_kind);
-                index += 1;
-            }
-            if let Some(token) = is_accepting(curr_state)
-            {
-                tokens.push(token);
-            }
-            tokens
-        }".to_string()
+            tokens.push(token);
+        }
+        
+        // Perform transition or error
+        let trans_kind = TransitionKind::Character(seq[index]);
+        curr_state = transition(curr_state, trans_kind);
+        index += 1;
+    }
+    if let Some(token) = is_accepting(curr_state)
+    {
+        tokens.push(token);
+    }
+    tokens
+}\n".to_string()
     }
 
     pub fn create_transition_kind(&mut self) -> String 
@@ -153,7 +174,7 @@ impl CodeGen {
         }
 
         header += "\tpanic!();\n";
-        header += "}";
+        header += "}\n";
         return header;
     }
 }
