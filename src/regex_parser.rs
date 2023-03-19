@@ -1,7 +1,13 @@
+use std::fmt::Result;
 use std::str::Chars;
 use std::iter::Peekable;
 use crate::node::Node;
 use crate::node_kind::NodeKind;
+
+pub enum RegExParserError
+{
+    ParseError,
+}
 
 pub struct RegExParser<'a> {
     position: i32,
@@ -30,30 +36,41 @@ impl RegExParser<'_> {
         parser
     }
 
-    pub fn parse(&mut self) -> Box<Node> {
+    pub fn parse(&mut self) -> Result<Box<Node>, RegExParserError>  {
         let mut tree_root = Box::new(Node::new("ROOT".to_string(), NodeKind::Root));
-        let regex_node = self.parse_regex().unwrap();
-        tree_root.add_child(regex_node);
-        return tree_root;
+        if let Some(regex_node) = self.parse_regex()
+        {
+            tree_root.add_child(regex_node);
+            return tree_root;
+        }
+        else
+        {
+           // Return a result object...
+           return RegExParserError::ParseError;
+        }
     }
 
-    fn parse_regex(&mut self) -> Option<Box<Node>> {
+    fn parse_regex(&mut self) -> Result {
         // Parse base
-        if let Some(base_node) = self.parse_high() {
-            // Create a node called regex
-            let mut regex_node = Box::new(Node::new("RegEx".to_string(), NodeKind::RegEx));
-
-            // Add node from base to regex
-            regex_node.add_child(base_node);
-            
-            // Parse regex and add node to regex_node
-            if let Some(sub_regex) = self.parse_regex() {
-                regex_node.add_child(sub_regex);
-            }
-
-            return Some(regex_node);
+        let result = self.parse_high();
+        if result.is_err()
+        {
+            return result;
         }
-        return None;
+        let base_node = result?;
+
+        // Create a node called regex
+        let mut regex_node = Box::new(Node::new("RegEx".to_string(), NodeKind::RegEx));
+
+        // Add node from base to regex
+        regex_node.add_child(base_node);
+        
+        // Parse regex and add node to regex_node
+        if let Ok(sub_regex) = self.parse_regex() {
+            regex_node.add_child(sub_regex);
+        }
+
+        return Ok(regex_node);
     }
 
     fn parse_middle(&mut self) -> Option<Box<Node>> {
@@ -96,7 +113,7 @@ impl RegExParser<'_> {
 
     }
 
-    fn parse_high(&mut self) -> Option<Box<Node>> {
+    fn parse_high(&mut self) -> Result<Box<Node>, RegExParserError> {
         // high = middle | middle
         // high = middle
         if let Some(middle1) = self.parse_middle() {

@@ -43,6 +43,15 @@ impl DFANode {
 
 impl DFABuilder {
 
+    pub unsafe fn convert_nfa_to_dfa(nfa: NFA) -> *mut DFANode
+    {
+        let mut dfa_builder = DFABuilder {
+            nodes: HashMap::new(),
+            raw_nodes: HashMap::new(),
+        };
+        return dfa_builder.convert_nfa_to_dfa_raw(nfa);
+    }
+
     pub unsafe fn convert_nfa_to_dfa_raw(&mut self, nfa: NFA) -> *mut DFANode
     {
         // Create q0
@@ -108,10 +117,17 @@ impl DFABuilder {
             }
 
             // Check whether this is an accepting state or not
-            if let NFANodeKind::EndWithToken(token) = &locked.kind {
-                if priority < min_priority {
-                    min_priority = priority;
-                    kind = DFANodeKind::Accept(token.to_string());
+            if priority < min_priority {
+                match &locked.kind {
+                    NFANodeKind::EndWithToken(token) => {
+                        min_priority = priority;
+                        kind = DFANodeKind::Accept(token.to_string());
+                    },
+                    NFANodeKind::End => {
+                        min_priority = priority;
+                        kind = DFANodeKind::Accept("".to_string());
+                    },
+                    _ => (),
                 }
             }
 
@@ -173,6 +189,7 @@ impl DFABuilder {
         let locked_node = node.lock().unwrap();
         let kind = match &locked_node.kind {
             NFANodeKind::EndWithToken(token) => DFANodeKind::Accept(token.to_string()),
+            NFANodeKind::End => DFANodeKind::Accept("".to_string()),
             _ => DFANodeKind::Nonacccept,
         };
         let mut states: HashSet<i32> = HashSet::new();

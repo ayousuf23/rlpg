@@ -6,32 +6,36 @@ pub struct DFASimulator;
 
 impl DFASimulator {
     
-    pub unsafe fn simulate_dfa(node: *mut DFANode, seq: Vec<char>)
+    pub unsafe fn simulate_dfa(node: *mut DFANode, string: &str) -> bool
     {
+        let seq: Vec<char> = string.chars().collect();
         let mut index = 0;
         // Lock the node
         let mut next = node;
 
-        while index <= seq.len() - 1
+        while seq.len() > 0 && index <= seq.len() - 1
         {
-            println!("{:?}", (*next).states);
-            println!("{:?}", (*next).raw_transitions);
             // Get transition for any char or next char
-            if let Some(dest) = (*next).raw_transitions.remove(&TransitionKind::Character(seq[index]))
+            if let Some(dest) = (*next).raw_transitions.get(&TransitionKind::Character(seq[index]))
             {
-                next = dest;
+                next = *dest;
             }
-            else if let Some(dest) = (*next).raw_transitions.remove(&TransitionKind::AnyChar) {
-                next = dest;
+            else if let Some(dest) = (*next).raw_transitions.get(&TransitionKind::AnyChar) {
+                next = *dest;
             }
             else {
-                println!("Failed!");
+                return false;
             }
 
             index += 1;
         }
 
-        // Print last node
-        println!("{:?}", (*next).kind);
+        // Get last node
+        if let crate::dfa_builder::DFANodeKind::Accept(_) = &(*next).kind 
+        {
+            return true;
+        } else {
+            return false;
+        }
     }
 }
