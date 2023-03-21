@@ -19,11 +19,8 @@ unsafe fn get_nfa(regex: &str) -> NFA {
     return NFABuilder::build(&parse_root.unwrap()).expect("Error");
 }
 
-unsafe fn test_regex(pattern: &str, to_accept: &Vec<&str>, to_reject: &Vec<&str>)
+unsafe fn test_nfa(nfa: NFA, to_accept: &Vec<&str>, to_reject: &Vec<&str>)
 {
-    // Get NFA
-    let nfa = get_nfa(pattern);
-
     // Simulate each to_accept string on nfa
     for item in to_accept
     {
@@ -47,6 +44,14 @@ unsafe fn test_regex(pattern: &str, to_accept: &Vec<&str>, to_reject: &Vec<&str>
     {
         assert!(!DFASimulator::simulate_dfa(dfa, item));
     }
+}
+
+unsafe fn test_regex(pattern: &str, to_accept: &Vec<&str>, to_reject: &Vec<&str>)
+{
+    // Get NFA
+    let nfa = get_nfa(pattern);
+
+    test_nfa(nfa, to_accept, to_reject);
 }
 
 #[test]
@@ -127,6 +132,10 @@ fn kleene_star_tests()
         test_regex("a*", &to_accept, &to_reject);
 
         test_regex("a****", &to_accept, &to_reject);
+
+        let to_accept = vec!["", " ", "  ", "   ", "    "];
+        let to_reject = vec!["b", "aaaaaaaab", "a"];
+        test_regex(" *", &to_accept, &to_reject);
     }
 }
 

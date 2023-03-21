@@ -1,6 +1,6 @@
-use crate::file_parser::{FileParserErrorKind, FileParser, FileParserError};
+use crate::{file_parser::{FileParserErrorKind, FileParser, FileParserError, Rule}, NFA, dfa_builder::DFABuilder, dfa_simulator::DFASimulator};
 
-fn file_parse(filename: &str) -> Result<bool, FileParserError>
+fn file_parse(filename: &str) -> Result<Vec<Rule>, FileParserError>
 {
     let path = "/Users/abdullah/Developer/rlpg/src/tests/file_parser_tests_resources/";
     let file_path = std::path::Path::new(path).join(filename);
@@ -22,9 +22,79 @@ fn assert_file_parse_failure(filename: &str, error_kind: FileParserErrorKind)
 {
     let result = file_parse(filename);
     assert!(result.is_err());
-    assert!(result.err().unwrap().kind == error_kind);
-}   
+    let kind = result.err().unwrap().kind;
+    println!("{:?}", kind);
+    assert!(kind == error_kind);
+}
 
+fn assert_regex_build_failure(filename: &str)
+{
+    let result = file_parse(filename);
+    unsafe {
+        let build_result = NFA::build_from_rules(&result.unwrap());
+        assert!(build_result.is_err());
+    }
+}
+
+unsafe fn assert_regex(filename: &str, to_produce_token: &Vec<&str>, to_not_produce_token: &Vec<&str>, to_reject: &Vec<&str>, expected_tokens: &Vec<&str>)
+{
+    let result = file_parse(filename);
+    assert!(!result.is_err());
+    unsafe {
+        let build_result = NFA::build_from_rules(&result.unwrap());
+        assert!(!build_result.is_err());
+        let nfa = build_result.unwrap();
+
+        // Simulate each to_accept string on nfa
+        let mut i = 0;
+        for item in to_produce_token
+        {
+            let (result, tokens) = nfa.simulate_and_get_token(item);
+            assert!(result);
+            assert!(tokens[0].name == expected_tokens[i]);
+            i += 1;
+        }
+
+        for item in to_not_produce_token
+        {
+            let (result, tokens) = nfa.simulate_and_get_token(item);
+            assert!(result);
+            assert!(tokens.len() == 0);
+        }
+
+        for item in to_reject
+        {
+            let (result, tokens) = nfa.simulate_and_get_token(item);
+            assert!(!result);
+            assert!(tokens.len() == 0);
+        }
+
+        // Get DFA
+        let dfa = DFABuilder::convert_nfa_to_dfa(nfa);
+        i = 0;
+        for item in to_produce_token
+        {
+            let (result, tokens) = DFASimulator::simulate_dfa_and_get_tokens(dfa, item);
+            assert!(result);
+            assert!(tokens[0] == expected_tokens[i]);
+            i += 1;
+        }
+
+        for item in to_not_produce_token
+        {
+            let (result, tokens) = DFASimulator::simulate_dfa_and_get_tokens(dfa, item);
+            assert!(result);
+            assert!(tokens.len() == 0);
+        }
+
+        for item in to_reject
+        {
+            let (result, tokens) = DFASimulator::simulate_dfa_and_get_tokens(dfa, item);
+            assert!(!result);
+            assert!(tokens.len() == 0);
+        }
+    }
+}
 
 #[test]
 fn test_section_header()
@@ -59,17 +129,44 @@ fn test_invalid_rule_names()
 }
 
 #[test]
-fn test_invalid_rule_regex()
+fn test_rule_regex()
 {
-    // TODO
-    //assert_file_parse_failure("duplicate_named_rules.txt", FileParserErrorKind::DuplicateName);
+    assert_file_parse_failure("invalid_rule_regex.txt", FileParserErrorKind::InvalidRegex);
+    assert_regex_build_failure("invalid_rule_regex2.txt");
+    assert_regex_build_failure("invalid_rule_regex3.txt");
+
+    // Test the right NFA is produced
 }
 
 #[test]
-fn test_invalid_rule_action_code()
+fn test_rule_precedence()
 {
-    // TODO
-    //assert_file_parse_failure("duplicate_named_rules.txt", FileParserErrorKind::DuplicateName);
+    unsafe {
+        let to_produce_tokens = vec!["hello"];
+        let to_not_produce_tokens = vec![];
+        let to_reject = vec!["", " ", "hell", "    "];
+        let tokens = vec!["rule1"];
+        assert_regex("rule_precedence.txt", &to_produce_tokens, &to_not_produce_tokens, &to_reject, &tokens);
+        assert_regex("rule_precedence2.txt", &to_produce_tokens, &to_not_produce_tokens, &to_reject, &tokens);
+
+        let to_produce_tokens = vec![];
+        let to_not_produce_tokens = vec!["hello"];
+        let to_reject = vec!["", " ", "hell", "    "];
+        let tokens = vec![];
+        assert_regex("rule_precedence3.txt", &to_produce_tokens, &to_not_produce_tokens, &to_reject, &tokens);
+    }
+}
+
+#[test]
+fn test_rule_action_code()
+{
+    assert_file_parse_failure("invalid_action_code.txt", FileParserErrorKind::InvalidActionCode);
+    assert_file_parse_failure("invalid_action_code2.txt", FileParserErrorKind::InvalidActionCode);
+    
+    assert_file_parse_success("valid_action_code.txt");
+    assert_file_parse_success("valid_action_code2.txt");
+    assert_file_parse_success("valid_action_code3.txt");
+    assert_file_parse_success("valid_action_code4.txt");
 }
 
 #[test]
@@ -77,4 +174,6 @@ fn test_rule_parsing()
 {
     // TODO
     //assert_file_parse_failure("duplicate_named_rules.txt", FileParserErrorKind::DuplicateName);
+
+    //idea: " *" test
 }

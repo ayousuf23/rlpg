@@ -63,7 +63,7 @@ impl FileParser {
         return line == "SECTION LEXER";
     }
 
-    pub fn parse_file(&mut self, path: &str) -> Result<bool, FileParserError> {
+    pub fn parse_file(&mut self, path: &str) -> Result<Vec<Rule>, FileParserError> {
         let file = File::open(path).expect("Error file cound not be opened!");
 
         let mut reader = BufReader::new(file);
@@ -76,6 +76,8 @@ impl FileParser {
         }
 
         line.clear();
+
+        let mut rules: Vec<Rule> = Vec::new();
         let mut rule_names: HashSet<String> = HashSet::new();
         let mut rule_counter = 1;
         while let Ok(result) = reader.read_line(&mut line) {
@@ -103,7 +105,7 @@ impl FileParser {
                 }
             }
 
-            self.rules.push(rule);
+            rules.push(rule);
             line.clear();
         }
 
@@ -111,7 +113,7 @@ impl FileParser {
             return Err(FileParserError { kind: FileParserErrorKind::NoRules })
         }
 
-        return Ok(true);
+        return Ok(rules);
     }
 
     fn parse_rule(line: &str) -> Result<Rule, FileParserError> {
@@ -130,7 +132,7 @@ impl FileParser {
         }
 
         // Get action code
-        let action_code = FileParser::get_action_code(parts[2].to_string());
+        let action_code = FileParser::get_action_code(parts[2].trim().to_string());
         if action_code.is_err() {
             return Err(action_code.unwrap_err());
         }
@@ -142,6 +144,7 @@ impl FileParser {
         if code.is_empty() {
             return Ok(None);
         }
+        println!("{}", code);
         if !code.starts_with('{') || !code.ends_with('}') {
             // Throw an error
             return Err(FileParserError::new(FileParserErrorKind::InvalidActionCode));
@@ -178,13 +181,12 @@ impl FileParser {
 
         for c in line.chars() {
             if c.is_whitespace() && !(c == ' ' && escaped) {  
-                if parts[curr_i].len() > 0 {
-                    if curr_i == 2 {
-                        break;
-                    }
+                if parts[curr_i].len() > 0 && curr_i < 2 {
                     curr_i += 1;
                 }
-                continue;
+                if curr_i < 2 {
+                    continue;
+                }
             }
 
             if c == '\\' && !escaped {

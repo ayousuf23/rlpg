@@ -1,0 +1,3 @@
+SECTION LEXER
+unnamed hello
+rule1 hello
