@@ -10,16 +10,22 @@ pub enum RegExParserError
 {
     UnmatchedOpenAndCloseParentheses,
     UnexpectedCharacter,
+    OrMissingLhs,
     OrMissingRHS,
     RechedEnd,
     ConsequtiveDashInRange,
     DashMissingLHS,
+    DashMissingRHS,
+    DashMissingLhsAndRhs,
     DashRhsIsLowerThanLhs,
     BracketMissingClose,
+    BracketMissingOpen,
+    BracketEmpty,
     CharacterMustBeEscaped,
     EscapeNotFollowedByCharacter,
     CloseParenthesisPropogation, // This is not really an error 
     InvalidInnerParenthesesExpression,
+    EmptyPattern,
 }
 
 impl Display for RegExParserError {
@@ -32,19 +38,25 @@ impl Error for RegExParserError {
     fn description(&self) -> &str
     {
         match self {
+            Self::OrMissingLhs => "The OR operator | is not preceded by an expresion.",
             Self::OrMissingRHS => "The OR operator | is not followed by an expresion.",
             Self::UnmatchedOpenAndCloseParentheses => "Invalid regular expression! Number of closed parentheses encountered is not equal
             to the number of open parenthesis encountered",
             Self::ConsequtiveDashInRange => "Two or more '-''s are not allowed after each other in a range.",
             Self::DashRhsIsLowerThanLhs => "This range is not valid because the character on the left-hand side must be equal to or lower than the character on the right-hand side in value.",
             Self::DashMissingLHS => "Range is not valid because it is missing an expression to the left of the dash.",
+            Self::DashMissingRHS => "Range is not valid because it is missing an expression to the right of the dash.",
+            Self::DashMissingLhsAndRhs => "Range is not valid because it is missing an expression to the left and right of the dash.",
             Self::BracketMissingClose => "Bracket does not have a closing ']'",
+            Self::BracketMissingOpen => "Bracket does not have an opening '['",
+            Self::BracketEmpty => "The inside of the bracket is empty.",
             Self::EscapeNotFollowedByCharacter => "Escape symbol is not followed by a character to escape",
             Self::CharacterMustBeEscaped => "This character must be escaped before using it literally",
             Self::UnexpectedCharacter => "This character was not expected to occur in this position",
             Self::InvalidInnerParenthesesExpression => "The inner parentheses expression is invalid or non-existant.",
             Self::CloseParenthesisPropogation => "This is not an error.",
-            Self::RechedEnd => "This is not an error. Reached end of string."
+            Self::RechedEnd => "This is not an error. Reached end of string.",
+            Self::EmptyPattern => "The pattern is an empty string.",
         }
     }
 
@@ -83,6 +95,10 @@ impl RegExParser<'_> {
     }
 
     pub fn parse(&mut self) -> std::result::Result<Box<Node>, RegExParserError>  {
+        if self.reached_end {
+            return Err(RegExParserError::EmptyPattern);
+        }
+
         let mut tree_root = Box::new(Node::new("ROOT".to_string(), NodeKind::Root));
         let regex_node = self.parse_regex();
         if regex_node.is_err() {
@@ -170,6 +186,7 @@ impl RegExParser<'_> {
         Ok(middle)
     }
 
+    // NEED TO REWRITE THIS FN
     fn parse_high(&mut self) -> std::result::Result<Box<Node>, RegExParserError> {
         // high = middle | middle
         // high = middle
@@ -222,12 +239,22 @@ impl RegExParser<'_> {
         } else if self.current_char == ')' {
             self.close_parenthesis_cnt += 1;
             self.advance();
+            if self.open_parenthesis_cnt < self.close_parenthesis_cnt {
+                return Err(RegExParserError::UnmatchedOpenAndCloseParentheses);
+            }
             return Err(RegExParserError::CloseParenthesisPropogation);     
         }
 
         if self.current_char == '[' {
             self.advance();
             return self.parse_bracket();
+        }
+        else if self.current_char == ']' {
+            return Err(RegExParserError::BracketMissingOpen);
+        }
+        else if self.current_char == '|' {
+            // Missing LHS
+            return Err(RegExParserError::OrMissingLhs);
         }
 
         return match self.parse_valid_or_escaped_char_as_char() {
@@ -290,7 +317,10 @@ impl RegExParser<'_> {
         }
 
         if range_started {
-            return Err(RegExParserError::DashMissingLHS);
+            if let None = lhs {
+                return Err(RegExParserError::DashMissingLhsAndRhs);
+            }
+            return Err(RegExParserError::DashMissingRHS);
         }
 
         if lhs.is_some() {
@@ -303,6 +333,10 @@ impl RegExParser<'_> {
             self.advance();
         } else {
             return Err(RegExParserError::BracketMissingClose);
+        }
+
+        if inner_bracket_node.children.len() == 0 {
+            return Err(RegExParserError::BracketEmpty);
         }
 
         return Ok(Box::new(inner_bracket_node));

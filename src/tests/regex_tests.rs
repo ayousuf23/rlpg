@@ -1,10 +1,13 @@
-use crate::{NFABuilder, regex_parser::RegExParser, NFA, DFABuilder, dfa_simulator::DFASimulator};
+use crate::{NFABuilder, regex_parser::{RegExParser, RegExParserError}, NFA, DFABuilder, dfa_simulator::DFASimulator};
 
-unsafe fn test_parse(regex: &str, expected_result: bool)
+unsafe fn assert_parse_error(regex: &str, kind: RegExParserError)
 {
     let mut parser = RegExParser::new(regex);
     let parse_root = parser.parse();
-    assert!(expected_result == !parse_root.is_err())
+    assert!(parse_root.is_err());
+    let err = parse_root.err().unwrap();
+    println!("{}", &err);
+    assert!(err == kind);
 }
 
 unsafe fn get_nfa(regex: &str) -> NFA {
@@ -51,7 +54,7 @@ fn fails_on_empty_string()
 {
     unsafe
     {
-        test_parse("", false);
+        assert_parse_error("", RegExParserError::EmptyPattern);
     }
 }
 
@@ -79,12 +82,12 @@ fn parentheses_tests()
     unsafe
     {
         // Test fails on empty parenthesis
-        test_parse("()", false);
-        test_parse("(", false);
-        test_parse(")", false);
-        test_parse("a(", false);
-        test_parse("a)", false);
-        test_parse("a()", false);
+        assert_parse_error("()", RegExParserError::InvalidInnerParenthesesExpression);
+        assert_parse_error("(", RegExParserError::InvalidInnerParenthesesExpression);
+        assert_parse_error(")", RegExParserError::UnmatchedOpenAndCloseParentheses);
+        assert_parse_error("a(", RegExParserError::InvalidInnerParenthesesExpression);
+        assert_parse_error("a)", RegExParserError::UnmatchedOpenAndCloseParentheses);
+        assert_parse_error("a()", RegExParserError::InvalidInnerParenthesesExpression);
 
         // Test nested parentheses
         let to_accept = vec!["a",];
@@ -102,6 +105,8 @@ fn plus_tests()
 {
     unsafe
     {
+        assert_parse_error("+", RegExParserError::CharacterMustBeEscaped);
+
         let to_accept = vec!["a", "aa", "aaa", "aaaaaaaaaaa"];
         let to_reject = vec!["", "b", "bc", "abcd78a", "aaaaaaaab", "a."];
         test_regex("a+", &to_accept, &to_reject);
@@ -115,10 +120,95 @@ fn kleene_star_tests()
 {
     unsafe
     {
+        assert_parse_error("*", RegExParserError::CharacterMustBeEscaped);
+
         let to_accept = vec!["", "a", "aa", "aaa", "aaaaaaaaaaa"];
         let to_reject = vec!["b", "aaaaaaaab", "a."];
         test_regex("a*", &to_accept, &to_reject);
 
         test_regex("a****", &to_accept, &to_reject);
+    }
+}
+
+#[test]
+fn question_mark_tests()
+{
+    unsafe
+    {
+        assert_parse_error("?", RegExParserError::CharacterMustBeEscaped);
+
+        let to_accept = vec!["", "a"];
+        let to_reject = vec!["b", "aa", "aaaa", "aaaaaaa"];
+        test_regex("a?", &to_accept, &to_reject);
+        test_regex("a????", &to_accept, &to_reject);
+
+        let to_accept = vec!["b", "ab"];
+        let to_reject = vec!["", "a", "aa", "bb"];
+        test_regex("a?b", &to_accept, &to_reject);
+    }
+}
+
+#[test]
+fn brackets_tests()
+{
+    unsafe
+    {
+        assert_parse_error("[", RegExParserError::BracketMissingClose);
+        assert_parse_error("]", RegExParserError::BracketMissingOpen);
+        assert_parse_error("[]", RegExParserError::BracketEmpty);
+        assert_parse_error("[a][", RegExParserError::BracketMissingClose);
+        assert_parse_error("[a]]", RegExParserError::BracketMissingOpen);
+
+        let to_accept = vec!["a"];
+        let to_reject = vec!["", "b", "aa", "aaaa", "aaaaaaa"];
+        test_regex("[a]", &to_accept, &to_reject);
+
+        let to_accept = vec!["a", "b"];
+        let to_reject = vec!["", "ab", "aa", "bb"];
+        test_regex("[ab]", &to_accept, &to_reject);
+        test_regex("[a-b]", &to_accept, &to_reject);
+
+        assert_parse_error("[a-]", RegExParserError::DashMissingRHS);
+        assert_parse_error("[-a]", RegExParserError::DashMissingLHS);
+        assert_parse_error("[-]", RegExParserError::DashMissingLhsAndRhs);
+        assert_parse_error("[a--]", RegExParserError::ConsequtiveDashInRange);
+        assert_parse_error("[a--b]", RegExParserError::ConsequtiveDashInRange);
+        assert_parse_error("[a---]", RegExParserError::ConsequtiveDashInRange);
+        assert_parse_error("[a---b]", RegExParserError::ConsequtiveDashInRange);
+        assert_parse_error("[a-b-c]", RegExParserError::DashMissingLHS);
+        assert_parse_error("[1-0]", RegExParserError::DashRhsIsLowerThanLhs);
+        assert_parse_error("[z-a]", RegExParserError::DashRhsIsLowerThanLhs);
+
+        let to_accept = vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+        let to_reject = vec!["", "a", "ab", "10", "11", "02"];
+        test_regex("[0-9]", &to_accept, &to_reject);
+    }
+}
+
+#[test]
+fn or_tests()
+{
+    unsafe
+    {
+        assert_parse_error("|", RegExParserError::OrMissingLhs);
+        assert_parse_error("a|", RegExParserError::OrMissingRHS);
+        assert_parse_error("|a", RegExParserError::OrMissingLhs);
+        assert_parse_error("||", RegExParserError::OrMissingLhs);
+
+        let to_accept = vec!["a", "b"];
+        let to_reject = vec!["", "bb", "aa", "aaaa", "cc", " ", "0"];
+        test_regex("a|b", &to_accept, &to_reject);
+
+        let to_accept = vec!["a", "b", "aa", "aaaa"];
+        let to_reject = vec!["", "bb", "bbb"];
+        test_regex("a+|b", &to_accept, &to_reject);
+
+        let to_accept = vec!["a", "b", "bb", "bbbb"];
+        let to_reject = vec!["", "aa", "aaa"];
+        test_regex("a|b+", &to_accept, &to_reject);
+
+        /*let to_accept = vec!["a", "b", "c"];
+        let to_reject = vec!["", "bb", "aa", "aaaa", "cc", " ", "0"];
+        test_regex("a|b|c", &to_accept, &to_reject);*/
     }
 }
