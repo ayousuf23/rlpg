@@ -1,15 +1,18 @@
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, BufRead, self};
 use std::path::Path;
 
 use crate::error::RlpgErr;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FileParserErrorKind {
     FileDoesNotBeginWithSectionHeader,
     InvalidActionCode,
     InvalidRuleName,
     InvalidRegex,
+    NoRules,
+    DuplicateName,
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +33,8 @@ impl RlpgErr for FileParserError {
             FileParserErrorKind::InvalidActionCode => "The action code is invalid",
             FileParserErrorKind::InvalidRegex => "The regex is invalid",
             FileParserErrorKind::InvalidRuleName => "The rule name is invalid",
+            FileParserErrorKind::NoRules => "The file has no rules.",
+            FileParserErrorKind::DuplicateName => "There are at least two named rules with the same name.",
         };
         return msg.to_string();
     }
@@ -71,7 +76,7 @@ impl FileParser {
         }
 
         line.clear();
-
+        let mut rule_names: HashSet<String> = HashSet::new();
         let mut rule_counter = 1;
         while let Ok(result) = reader.read_line(&mut line) {
             if result == 0 {
@@ -91,22 +96,26 @@ impl FileParser {
             let mut rule = rule.unwrap();
             rule.priority = rule_counter;
             rule_counter += 1;
+
+            if let RuleKind::Named(name) = &rule.kind {
+                if !rule_names.insert(name.to_string()) {
+                    return Err(FileParserError { kind: FileParserErrorKind::DuplicateName });
+                }
+            }
+
             self.rules.push(rule);
             line.clear();
+        }
+
+        if rule_counter == 1 {
+            return Err(FileParserError { kind: FileParserErrorKind::NoRules })
         }
 
         return Ok(true);
     }
 
-    fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-    where P: AsRef<Path>, {
-        let file = File::open(filename)?;
-        Ok(io::BufReader::new(file).lines())
-    }
-
     fn parse_rule(line: &str) -> Result<Rule, FileParserError> {
         let parts = FileParser::parse_line(line);
-        //println!("{:?}", parts);
 
         // Get kind
         let kind = FileParser::determine_rule_kind(parts[0].to_string());

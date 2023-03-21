@@ -1,8 +1,5 @@
-/*pub mod regex_plus_tests;
-pub mod regex_star_tests;
-pub mod regex_question_mark_tests;
-pub mod regex_any_char_tests;
-pub mod regex_parentheses_tests;*/
-
 #[cfg(test)]
 mod regex_tests;
+
+#[cfg(test)]
+mod file_parser_tests;

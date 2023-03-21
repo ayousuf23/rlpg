@@ -11,7 +11,7 @@ pub enum RegExParserError
     UnmatchedOpenAndCloseParentheses,
     UnexpectedCharacter,
     OrMissingLhs,
-    OrMissingRHS,
+    OrMissingOrInvalidRhs,
     RechedEnd,
     ConsequtiveDashInRange,
     DashMissingLHS,
@@ -39,7 +39,7 @@ impl Error for RegExParserError {
     {
         match self {
             Self::OrMissingLhs => "The OR operator | is not preceded by an expresion.",
-            Self::OrMissingRHS => "The OR operator | is not followed by an expresion.",
+            Self::OrMissingOrInvalidRhs => "The OR operator | is not followed by an expresion.",
             Self::UnmatchedOpenAndCloseParentheses => "Invalid regular expression! Number of closed parentheses encountered is not equal
             to the number of open parenthesis encountered",
             Self::ConsequtiveDashInRange => "Two or more '-''s are not allowed after each other in a range.",
@@ -186,7 +186,6 @@ impl RegExParser<'_> {
         Ok(middle)
     }
 
-    // NEED TO REWRITE THIS FN
     fn parse_high(&mut self) -> std::result::Result<Box<Node>, RegExParserError> {
         // high = middle | middle
         // high = middle
@@ -195,22 +194,20 @@ impl RegExParser<'_> {
         {
             return middle1;
         }
-        let middle1 = middle1?;
+        // Create a new node
+        let mut node = Box::new(Node::new("high".to_string(), NodeKind::High));
+        node.add_child(middle1?);
 
-        if self.current_char == '|' && !self.reached_end {
+        while self.current_char == '|' && !self.reached_end {
             self.advance();
             if let Ok(middle2) = self.parse_middle() {
-                // Create a new start node
-                let mut node = Box::new(Node::new("high".to_string(), NodeKind::High));
-                node.add_child(middle1);
                 node.add_child(middle2);
-                return Ok(node);
             } else {
-                return Err(RegExParserError::OrMissingRHS);
+                return Err(RegExParserError::OrMissingOrInvalidRhs);
             }
-        } else {
-            return Ok(middle1);
         }
+
+        return Ok(node);
     }
     
     fn parse_base(&mut self) -> std::result::Result<Box<Node>, RegExParserError> {

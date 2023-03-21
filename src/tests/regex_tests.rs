@@ -158,10 +158,21 @@ fn brackets_tests()
         assert_parse_error("[]", RegExParserError::BracketEmpty);
         assert_parse_error("[a][", RegExParserError::BracketMissingClose);
         assert_parse_error("[a]]", RegExParserError::BracketMissingOpen);
+        assert_parse_error("[()]", RegExParserError::CharacterMustBeEscaped);
 
         let to_accept = vec!["a"];
         let to_reject = vec!["", "b", "aa", "aaaa", "aaaaaaa"];
         test_regex("[a]", &to_accept, &to_reject);
+        test_regex("([a])", &to_accept, &to_reject);
+
+        let to_accept = vec!["a", "aa", "aaa"];
+        let to_reject = vec!["", "b", "c"];
+        test_regex("[a]+", &to_accept, &to_reject);
+
+        let to_accept = vec!["", "a", "aa", "aaa"];
+        let to_reject = vec!["b", "c"];
+        test_regex("[a]*", &to_accept, &to_reject);
+
 
         let to_accept = vec!["a", "b"];
         let to_reject = vec!["", "ab", "aa", "bb"];
@@ -182,6 +193,14 @@ fn brackets_tests()
         let to_accept = vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
         let to_reject = vec!["", "a", "ab", "10", "11", "02"];
         test_regex("[0-9]", &to_accept, &to_reject);
+
+        let to_accept = vec!["+"];
+        let to_reject = vec!["", "a", "/", "\\", " "];
+        test_regex("[\\+]", &to_accept, &to_reject);
+
+        let to_accept = vec!["(", ")"];
+        let to_reject = vec!["", "a", "/", "\\", " ", "))", "((", "()", ")("];
+        test_regex("[\\(-\\)]", &to_accept, &to_reject);
     }
 }
 
@@ -191,7 +210,7 @@ fn or_tests()
     unsafe
     {
         assert_parse_error("|", RegExParserError::OrMissingLhs);
-        assert_parse_error("a|", RegExParserError::OrMissingRHS);
+        assert_parse_error("a|", RegExParserError::OrMissingOrInvalidRhs);
         assert_parse_error("|a", RegExParserError::OrMissingLhs);
         assert_parse_error("||", RegExParserError::OrMissingLhs);
 
@@ -206,9 +225,14 @@ fn or_tests()
         let to_accept = vec!["a", "b", "bb", "bbbb"];
         let to_reject = vec!["", "aa", "aaa"];
         test_regex("a|b+", &to_accept, &to_reject);
+        test_regex("(a)|b+", &to_accept, &to_reject);
+        test_regex("[a]|b+", &to_accept, &to_reject);
+        test_regex("a|(b+)", &to_accept, &to_reject);
+        test_regex("a|(b)+", &to_accept, &to_reject);
+        test_regex("a|[b]+", &to_accept, &to_reject);
 
-        /*let to_accept = vec!["a", "b", "c"];
+        let to_accept = vec!["a", "b", "c"];
         let to_reject = vec!["", "bb", "aa", "aaaa", "cc", " ", "0"];
-        test_regex("a|b|c", &to_accept, &to_reject);*/
+        test_regex("a|b|c", &to_accept, &to_reject);
     }
 }
