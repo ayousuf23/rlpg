@@ -65,14 +65,14 @@ fn main() {
 
     // Take the rules and build an NFA
     unsafe {
-        let nfa = NFA::build_from_rules(&file_parser.rules).unwrap();
+        let nfa = NFA::build_from_rules(&file_parser.rules);
+        if nfa.is_err()
+        {
+            println!("{}", format!("Error: {}", nfa.err().unwrap()).red());
+            return;
+        }
 
-        // Create a DFA 
-        let mut dfa_builder = dfa_builder::DFABuilder {
-            nodes: HashMap::new(),
-            raw_nodes: HashMap::new(),
-        };
-        let dfa = dfa_builder.convert_nfa_to_dfa_raw(nfa);
+        let dfa = dfa_builder::DFABuilder::convert_nfa_to_dfa(nfa.unwrap());
 
         // Print 1st node
         //DFANode::print(dfa);

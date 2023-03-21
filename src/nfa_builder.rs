@@ -1,6 +1,39 @@
-use std::{rc::Rc, sync::Mutex};
+use std::{rc::Rc, sync::Mutex, error::Error};
 
 use crate::{nfa::{NFA, NFANode, Transition, TransitionKind, NFANodeKind}, node::Node, node_kind::NodeKind};
+
+#[derive(Debug)]
+pub enum NFABuilderError 
+{
+    NoRules,
+    RegExError,
+    DuplicateNamedRule,
+}
+
+impl core::fmt::Display for NFABuilderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.description())
+    }
+}
+
+impl Error for NFABuilderError
+{
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+
+    fn description(&self) -> &str {
+        return match self {
+            Self::NoRules => "There is no rules for which to generate an NFA.",
+            Self::RegExError => "There was an error parsing the regex patter.",
+            Self::DuplicateNamedRule => "Names for rules must be unique. There are at least two rules with the same name."
+        };
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        self.source()
+    }
+}
 
 pub struct NFABuilder;
 

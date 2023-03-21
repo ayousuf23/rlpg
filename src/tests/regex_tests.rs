@@ -1,13 +1,19 @@
 use crate::{NFABuilder, regex_parser::RegExParser, NFA, DFABuilder, dfa_simulator::DFASimulator};
 
+unsafe fn test_parse(regex: &str, expected_result: bool)
+{
+    let mut parser = RegExParser::new(regex);
+    let parse_root = parser.parse();
+    assert!(expected_result == !parse_root.is_err())
+}
+
 unsafe fn get_nfa(regex: &str) -> NFA {
-    let regex = regex.trim().to_string();
     // Create a regex parser
     let mut parser = RegExParser::new(&regex);
     let parse_root = parser.parse();
 
     // Generate an NFA
-    return NFABuilder::build(&parse_root).expect("Error");
+    return NFABuilder::build(&parse_root.unwrap()).expect("Error");
 }
 
 unsafe fn test_regex(pattern: &str, to_accept: &Vec<&str>, to_reject: &Vec<&str>)
@@ -43,14 +49,9 @@ unsafe fn test_regex(pattern: &str, to_accept: &Vec<&str>, to_reject: &Vec<&str>
 #[test]
 fn fails_on_empty_string()
 {
-    let mut parser = RegExParser::new("");
-    let parse_root = parser.parse();
-    unsafe {
-        if let None = NFABuilder::build(&parse_root) {
-            assert!(true);
-        } else {
-            assert!(false);
-        }
+    unsafe
+    {
+        test_parse("", false);
     }
 }
 
@@ -78,13 +79,12 @@ fn parentheses_tests()
     unsafe
     {
         // Test fails on empty parenthesis
-        let mut parser = RegExParser::new("()");
-        let parse_root = parser.parse();
-        if let None = NFABuilder::build(&parse_root) {
-            assert!(true);
-        } else {
-            assert!(false);
-        }
+        test_parse("()", false);
+        test_parse("(", false);
+        test_parse(")", false);
+        test_parse("a(", false);
+        test_parse("a)", false);
+        test_parse("a()", false);
 
         // Test nested parentheses
         let to_accept = vec!["a",];

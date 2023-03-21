@@ -2,3 +2,4 @@ SECTION LEXER
 
 char hi
 charx hello
+char hi
