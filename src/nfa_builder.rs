@@ -156,12 +156,16 @@ impl NFABuilder {
     }
 
     pub unsafe fn build_or_of_child_nodes(node: &Node) -> Option<NFA> {
+        if node.children.len() < 2 {
+            return NFABuilder::build(node.children[0].as_ref());
+        }
+        
         // Create a new start node
-        let mut real_start = Rc::new(Mutex::new(NFANode::new_start()));
+        let real_start = Rc::new(Mutex::new(NFANode::new_start()));
         let mut start = real_start.lock().unwrap();
 
         // Create a new end node
-        let mut end = Rc::new(Mutex::new(NFANode::new_end()));
+        let end = Rc::new(Mutex::new(NFANode::new_end()));
 
         for child_node in &node.children {
             // Build the child
@@ -191,7 +195,7 @@ impl NFABuilder {
         // Create an end node
         let end = Rc::new(Mutex::new(NFANode::new_end()));
 
-        let mut nfa = NFA {
+        let nfa = NFA {
             start,
             end,
         };

@@ -52,20 +52,21 @@ fn main() {
 
     let args = Args::parse();
 
-    let mut file_parser = FileParser {
-        rules: Vec::new(),
-    };
+    let mut file_parser = FileParser {};
 
     // Open the file
-    if let Err(error) = file_parser.parse_file(&args.filename)
+    let file_parse_result = file_parser.parse_file(&args.filename);
+    if let Err(error) = file_parse_result
     {
         println!("{}", error.get_err_message().red());
         return;
     }
+    let rules = file_parse_result.unwrap();
+
 
     // Take the rules and build an NFA
     unsafe {
-        let nfa = NFA::build_from_rules(&file_parser.rules);
+        let nfa = NFA::build_from_rules(&rules);
         if nfa.is_err()
         {
             println!("{}", format!("Error: {}", nfa.err().unwrap()).red());

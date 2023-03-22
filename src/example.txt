@@ -1,5 +1,2 @@
 SECTION LEXER
-
-char hi
-charx hello
-char hi
+number (0|1|2|3)+

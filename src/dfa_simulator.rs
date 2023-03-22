@@ -20,7 +20,9 @@ impl DFASimulator {
             // If this is an Accept state
             if let crate::dfa_builder::DFANodeKind::Accept(token) = &(*next).kind 
             {
-                tokens.push(token.to_string());
+                if !token.is_empty() {
+                    tokens.push(token.to_string());
+                }
             }
 
             // Get transition for any char or next char
@@ -41,7 +43,9 @@ impl DFASimulator {
         // Get last node
         if let crate::dfa_builder::DFANodeKind::Accept(token) = &(*next).kind 
         {
-            tokens.push(token.to_string());
+            if !token.is_empty() {
+                tokens.push(token.to_string());
+            }
             return (true, tokens);
         } else {
             return (false, tokens);

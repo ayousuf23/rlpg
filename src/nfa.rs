@@ -65,9 +65,10 @@ impl Transition {
 
 impl NFANode {
     pub unsafe fn new(kind: NFANodeKind, data: String) -> NFANode {
-        static mut counter: i32 = 0;
-        counter += 1;
-        NFANode { kind: kind, data: data, transitions: Vec::new(), id: counter - 1 }
+        static mut COUNTER: i32 = 0;
+        COUNTER += 1;
+        println!("{}", COUNTER);
+        NFANode { kind: kind, data: data, transitions: Vec::new(), id: COUNTER - 1 }
     }
 
     pub unsafe fn new_regular(data: String) -> NFANode {
@@ -240,7 +241,7 @@ impl NFA {
                 new_nfa_end.kind = NFANodeKind::End;
             }
             
-            new_nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty, rule.priority);
+            //new_nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty, rule.priority);
             
             let new_nfa_end = Rc::new(Mutex::new(new_nfa_end));
             let mut nfa_end = nfa.end.as_ref().lock().unwrap();

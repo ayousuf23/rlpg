@@ -55,7 +55,6 @@ pub struct Rule {
 }
 
 pub struct FileParser {
-    pub rules: Vec<Rule>
 }
 
 impl FileParser {

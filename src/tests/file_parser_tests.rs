@@ -45,6 +45,8 @@ unsafe fn assert_regex(filename: &str, to_produce_token: &Vec<&str>, to_not_prod
         assert!(!build_result.is_err());
         let nfa = build_result.unwrap();
 
+        println!("here");
+
         // Simulate each to_accept string on nfa
         let mut i = 0;
         for item in to_produce_token
@@ -55,6 +57,7 @@ unsafe fn assert_regex(filename: &str, to_produce_token: &Vec<&str>, to_not_prod
             i += 1;
         }
 
+        println!("here");
         for item in to_not_produce_token
         {
             let (result, tokens) = nfa.simulate_and_get_token(item);
@@ -62,6 +65,7 @@ unsafe fn assert_regex(filename: &str, to_produce_token: &Vec<&str>, to_not_prod
             assert!(tokens.len() == 0);
         }
 
+        println!("here");
         for item in to_reject
         {
             let (result, tokens) = nfa.simulate_and_get_token(item);
@@ -70,6 +74,7 @@ unsafe fn assert_regex(filename: &str, to_produce_token: &Vec<&str>, to_not_prod
         }
 
         // Get DFA
+        println!("here");
         let dfa = DFABuilder::convert_nfa_to_dfa(nfa);
         i = 0;
         for item in to_produce_token
@@ -80,13 +85,16 @@ unsafe fn assert_regex(filename: &str, to_produce_token: &Vec<&str>, to_not_prod
             i += 1;
         }
 
+        println!("here");
         for item in to_not_produce_token
         {
             let (result, tokens) = DFASimulator::simulate_dfa_and_get_tokens(dfa, item);
             assert!(result);
+            //println!("{:?}", tokens);
             assert!(tokens.len() == 0);
         }
 
+        println!("here");
         for item in to_reject
         {
             let (result, tokens) = DFASimulator::simulate_dfa_and_get_tokens(dfa, item);
@@ -122,20 +130,26 @@ fn test_named_rules_with_same_name()
 }
 
 #[test]
-fn test_invalid_rule_names()
-{
-    // TODO
-    //assert_file_parse_failure("duplicate_named_rules.txt", FileParserErrorKind::DuplicateName);
-}
-
-#[test]
 fn test_rule_regex()
 {
     assert_file_parse_failure("invalid_rule_regex.txt", FileParserErrorKind::InvalidRegex);
     assert_regex_build_failure("invalid_rule_regex2.txt");
     assert_regex_build_failure("invalid_rule_regex3.txt");
 
-    // Test the right NFA is produced
+    unsafe {
+        // Test the right NFA is produced
+        let to_produce_tokens = vec!["hello"];
+        let to_not_produce_tokens = vec![];
+        let to_reject = vec!["", " ", "hell", "    "];
+        let tokens = vec!["rule1"];
+        assert_regex("valid_rule_regex.txt", &to_produce_tokens, &to_not_produce_tokens, &to_reject, &tokens);
+        
+        let to_produce_tokens = vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "12345", "57383", "   123", "56   "];
+        let to_not_produce_tokens = vec![" ", "    ", "     "];
+        let to_reject = vec!["", "a"];
+        let tokens = vec!["number", "number", "number", "number", "number", "number", "number", "number", "number", "number", "number", "number", "number", "number"];
+        assert_regex("valid_rule_regex2.txt", &to_produce_tokens, &to_not_produce_tokens, &to_reject, &tokens);
+    }
 }
 
 #[test]
@@ -167,13 +181,4 @@ fn test_rule_action_code()
     assert_file_parse_success("valid_action_code2.txt");
     assert_file_parse_success("valid_action_code3.txt");
     assert_file_parse_success("valid_action_code4.txt");
-}
-
-#[test]
-fn test_rule_parsing()
-{
-    // TODO
-    //assert_file_parse_failure("duplicate_named_rules.txt", FileParserErrorKind::DuplicateName);
-
-    //idea: " *" test
 }
