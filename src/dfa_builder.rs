@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -21,7 +22,7 @@ pub enum DFANodeKind {
 }
 
 pub struct DFANode {
-    pub states: HashSet<i32>,
+    pub states: BTreeSet<i32>,
     pub nodes: Vec<Rc<Mutex<NFANode>>>,
     pub transitions: HashMap<TransitionKind, Rc<Mutex<DFANode>>>,
     pub raw_transitions: HashMap<TransitionKind, *mut DFANode>,
@@ -29,7 +30,7 @@ pub struct DFANode {
 }
 
 impl DFANode {
-    pub fn new(states: HashSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>, kind: DFANodeKind) -> DFANode
+    pub fn new(states: BTreeSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>, kind: DFANodeKind) -> DFANode
     {
         DFANode { states: states, nodes, transitions: HashMap::new(), raw_transitions: HashMap::new(), kind}
     }
@@ -69,19 +70,23 @@ impl DFABuilder {
 
         let mut work_list: Vec<*mut DFANode> = Vec::new();
         work_list.push(q0);
-        let mut seen: HashSet<*const DFANode> = HashSet::new();
+        let mut seen: BTreeSet<*const DFANode> = BTreeSet::new();
         seen.insert(q0);
 
         while let Some(node) = work_list.pop()
         {
             let transitions = self.dfa_raw_get_trans(node);
 
-            for trans in transitions
+            for (trans, dests) in transitions
             {
-                if trans.0 != TransitionKind::Empty {
+                if let TransitionKind::Character(c) = &trans
+                {
+                    let d = c;
+                }
+                if trans != TransitionKind::Empty {
                     // Get the epsilon closure
-                    let epsilon = self.get_epsilon_raw(&trans.1);
-                    (*node).raw_transitions.insert(trans.0, epsilon);
+                    let epsilon = self.get_epsilon_raw(&dests);
+                    (*node).raw_transitions.insert(trans, epsilon);
 
                     if seen.insert(epsilon)
                     {
@@ -97,7 +102,7 @@ impl DFABuilder {
 
     unsafe fn get_epsilon_raw(&mut self, node: &Vec<(Rc<Mutex<NFANode>>, i32)>) -> *mut DFANode
     {
-        let mut seen: HashSet<i32> = HashSet::new();
+        let mut seen: BTreeSet<i32> = BTreeSet::new();
         let mut nodes: Vec<Rc<Mutex<NFANode>>> = Vec::new();
         let mut stack: Vec<(Rc<Mutex<NFANode>>, i32)> = Vec::new();
         let mut min_priority = i32::MAX;
@@ -110,6 +115,7 @@ impl DFABuilder {
         while let Some((front, priority)) = stack.pop()
         {
             let locked = front.lock().unwrap();
+            let id = locked.id;
             if !seen.insert(locked.id)
             {
                 // The node was already seen
@@ -150,14 +156,19 @@ impl DFABuilder {
     // Get the transitions of this node based on underlying NFA transitions
     unsafe fn dfa_raw_get_trans(&mut self, node: *const DFANode) -> HashMap<TransitionKind, Vec<(Rc<Mutex<NFANode>>, i32)>>
     {
+        //println!("DFA node get trans {:?}", (*node).states);
         let mut transitions: HashMap<TransitionKind, Vec<(Rc<Mutex<NFANode>>, i32)>> = HashMap::new();
         for nfa_node in &(*node).nodes
         {
             // Add a transition for each transition of each nfa_node
             let locked = nfa_node.lock().unwrap();
+            let id = locked.id;
+            // store temp
+            let mut temp = Vec::new();
             for trans in &locked.transitions
             {
-                if let Some(dests) = transitions.get_mut(&trans.kind)
+                temp.push((Rc::clone(&trans.destination), trans.priority, trans.kind.clone()));
+                /*if let Some(dests) = transitions.get_mut(&trans.kind)
                 {
                     dests.push((Rc::clone(&trans.destination), trans.priority));
                 }
@@ -165,13 +176,29 @@ impl DFABuilder {
                     let mut dests = Vec::new();
                     dests.push((Rc::clone(&trans.destination), trans.priority));
                     transitions.insert(trans.kind.clone(), dests);
+                }*/
+            }
+
+            drop(locked);
+            for (dest, priority, kind) in temp {
+
+                let locked_dest = dest.lock().unwrap();
+                //println!("Trans kind: {:?}, Node ID: {}", kind, locked_dest.id);
+                if let Some(dests) = transitions.get_mut(&kind)
+                {
+                    dests.push((Rc::clone(&dest), priority));
+                }
+                else {
+                    let mut dests = Vec::new();
+                    dests.push((Rc::clone(&dest), priority));
+                    transitions.insert(kind.clone(), dests);
                 }
             }
         }
         return transitions;
     }
 
-    fn to_dfa_node_raw(&mut self, ids: HashSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>, kind: DFANodeKind) -> *mut DFANode
+    fn to_dfa_node_raw(&mut self, ids: BTreeSet<i32>, nodes: Vec<Rc<Mutex<NFANode>>>, kind: DFANodeKind) -> *mut DFANode
     {
         // First compute the id
         let id = DFABuilder::compute_dfa_node_id(&ids);
@@ -192,7 +219,7 @@ impl DFABuilder {
             NFANodeKind::End => DFANodeKind::Accept("".to_string()),
             _ => DFANodeKind::Nonacccept,
         };
-        let mut states: HashSet<i32> = HashSet::new();
+        let mut states: BTreeSet<i32> = BTreeSet::new();
         states.insert(locked_node.id);
         drop(locked_node);
         let mut nodes = Vec::new();
@@ -200,7 +227,7 @@ impl DFABuilder {
         return self.to_dfa_node_raw(states, nodes, kind);
     }
 
-    fn compute_dfa_node_id(node_ids: &HashSet<i32>) -> String
+    fn compute_dfa_node_id(node_ids: &BTreeSet<i32>) -> String
     {
         let mut id = String::new();
         for n_id in node_ids

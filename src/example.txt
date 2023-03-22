@@ -1,2 +1,2 @@
 SECTION LEXER
-number (0|1|2|3)+
+number [0-9]+

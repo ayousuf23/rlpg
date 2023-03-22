@@ -67,8 +67,8 @@ impl NFANode {
     pub unsafe fn new(kind: NFANodeKind, data: String) -> NFANode {
         static mut COUNTER: i32 = 0;
         COUNTER += 1;
-        println!("{}", COUNTER);
-        NFANode { kind: kind, data: data, transitions: Vec::new(), id: COUNTER - 1 }
+        //println!("{}", COUNTER);
+        NFANode { kind: kind, data: data, transitions: Vec::new(), id: COUNTER }
     }
 
     pub unsafe fn new_regular(data: String) -> NFANode {
@@ -230,6 +230,7 @@ impl NFA {
             // Create a new end node
             let mut new_nfa_end = NFANode::new_end();
             
+            
             if let crate::file_parser::RuleKind::Named(name) = &rule.kind {
                 new_nfa_end.kind = NFANodeKind::EndWithToken(name.to_string());
                 // If a rule with the same name was already seen, return an error
@@ -241,7 +242,7 @@ impl NFA {
                 new_nfa_end.kind = NFANodeKind::End;
             }
             
-            //new_nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty, rule.priority);
+            new_nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty, rule.priority);
             
             let new_nfa_end = Rc::new(Mutex::new(new_nfa_end));
             let mut nfa_end = nfa.end.as_ref().lock().unwrap();

@@ -6,7 +6,6 @@ fn file_parse(filename: &str) -> Result<Vec<Rule>, FileParserError>
     let file_path = std::path::Path::new(path).join(filename);
 
     let mut parser = FileParser {
-        rules: Vec::new(),
     };
 
     return parser.parse_file(file_path.as_path().to_str().unwrap());
