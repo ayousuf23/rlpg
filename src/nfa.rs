@@ -189,8 +189,6 @@ impl NFANode {
 impl NFA {
     pub fn simulate(&self, string: &str) -> bool {
         let chars: Vec<char> = string.chars().collect();
-        /*let start = self.start.as_ref().lock().unwrap();
-        return start.simulate(&chars, 0);*/
         return NFANode::simulate(Rc::clone(&self.start), &chars, 0);
     }
 
@@ -220,7 +218,10 @@ impl NFA {
             }
 
             // Create NFA
-            let nfa: NFA = NFABuilder::build(parse_root.unwrap().as_ref()).expect("Error");
+            let nfa = match NFABuilder::build(parse_root.unwrap().as_ref()) {
+                Ok(node) => node,
+                Err(err) => return Err(Box::new(err)),
+            };
 
             // Combine with start node
             let mut nfa_start = nfa.start.as_ref().lock().unwrap();

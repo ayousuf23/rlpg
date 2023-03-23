@@ -1,11 +1,11 @@
 use std::collections::HashSet;
+use std::error::Error;
 use std::fs::File;
-use std::io::{BufReader, BufRead, self};
-use std::path::Path;
+use std::io::{BufReader, BufRead};
 
-use crate::error::RlpgErr;
+use colored::Colorize;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum FileParserErrorKind {
     FileDoesNotBeginWithSectionHeader,
     InvalidActionCode,
@@ -13,20 +13,21 @@ pub enum FileParserErrorKind {
     InvalidRegex,
     NoRules,
     DuplicateName,
+    ReadLineError,
+    FileOpenError,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct FileParserError {
     pub kind: FileParserErrorKind,
+    pub inner_error: Option<Box<dyn Error>>,
 }
 
 impl FileParserError {
-    pub fn new(kind: FileParserErrorKind) -> FileParserError {
-        return FileParserError { kind };
+    pub fn new(kind: FileParserErrorKind, error: Option<Box<dyn Error>>) -> FileParserError {
+        return FileParserError { kind, inner_error: error };
     }
-}
 
-impl RlpgErr for FileParserError {
     fn get_err_message(&self) -> String {
         let msg = match self.kind {
             FileParserErrorKind::FileDoesNotBeginWithSectionHeader => "The input file does not begin with a section header",
@@ -35,8 +36,38 @@ impl RlpgErr for FileParserError {
             FileParserErrorKind::InvalidRuleName => "The rule name is invalid",
             FileParserErrorKind::NoRules => "The file has no rules.",
             FileParserErrorKind::DuplicateName => "There are at least two named rules with the same name.",
+            FileParserErrorKind::ReadLineError => "An error was encountered while reading a line in the file.",
+            FileParserErrorKind::FileOpenError => "An error was encountered while opening the file.",
+
         };
         return msg.to_string();
+    }
+}
+
+impl std::fmt::Display for FileParserError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = format!("Error: {}", self.get_err_message()).red();
+        let result = writeln!(f, "{}", msg);
+        
+        if let Some(error) = &self.inner_error {
+            let msg = format!("{}", error.as_ref()).red();
+            writeln!(f, "{}", msg);
+        }
+        return result;
+    }
+}
+
+impl std::error::Error for FileParserError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+
+    fn description(&self) -> &str {
+        "description() is deprecated; use Display"
+    }
+
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        self.source()
     }
 }
 
@@ -63,15 +94,20 @@ impl FileParser {
     }
 
     pub fn parse_file(&mut self, path: &str) -> Result<Vec<Rule>, FileParserError> {
-        let file = File::open(path).expect("Error file cound not be opened!");
+        let file = match File::open(path) {
+            Ok(innerFile) => innerFile,
+            Err(error) => return Err(FileParserError::new(FileParserErrorKind::FileOpenError, Some(Box::new(error)))),
+        };
 
         let mut reader = BufReader::new(file);
 
         let mut line: String = String::new();
-        reader.read_line(&mut line).expect("Error");
+        if let Err(error) = reader.read_line(&mut line) {
+            return Err(FileParserError::new(FileParserErrorKind::ReadLineError, Some(Box::new(error))));
+        }
 
         if !FileParser::is_valid_section_header(line.trim()) {
-            return Err(FileParserError::new(FileParserErrorKind::FileDoesNotBeginWithSectionHeader));
+            return Err(FileParserError::new(FileParserErrorKind::FileDoesNotBeginWithSectionHeader, None));
         }
 
         line.clear();
@@ -100,7 +136,7 @@ impl FileParser {
 
             if let RuleKind::Named(name) = &rule.kind {
                 if !rule_names.insert(name.to_string()) {
-                    return Err(FileParserError { kind: FileParserErrorKind::DuplicateName });
+                    return Err(FileParserError::new(FileParserErrorKind::DuplicateName, None));
                 }
             }
 
@@ -109,7 +145,7 @@ impl FileParser {
         }
 
         if rule_counter == 1 {
-            return Err(FileParserError { kind: FileParserErrorKind::NoRules })
+            return Err(FileParserError::new(FileParserErrorKind::NoRules, None));
         }
 
         return Ok(rules);
@@ -143,10 +179,10 @@ impl FileParser {
         if code.is_empty() {
             return Ok(None);
         }
-        println!("{}", code);
+        //println!("{}", code);
         if !code.starts_with('{') || !code.ends_with('}') {
             // Throw an error
-            return Err(FileParserError::new(FileParserErrorKind::InvalidActionCode));
+            return Err(FileParserError::new(FileParserErrorKind::InvalidActionCode, None));
         }
 
         return Ok(Some(code));
@@ -154,14 +190,14 @@ impl FileParser {
 
     fn validate_regex(regex: String) -> Result<String, FileParserError> {
         if regex.is_empty() {
-            return Err(FileParserError::new(FileParserErrorKind::InvalidRegex));
+            return Err(FileParserError::new(FileParserErrorKind::InvalidRegex, None));
         }
         return Ok(regex);
     }
 
     fn determine_rule_kind(name: String) -> Result<RuleKind, FileParserError> {
         if name.is_empty() {
-            return Err(FileParserError::new(FileParserErrorKind::InvalidRuleName));
+            return Err(FileParserError::new(FileParserErrorKind::InvalidRuleName, None));
         }
 
         if name == "unnamed" {

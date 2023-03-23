@@ -58,7 +58,7 @@ fn main() {
     let file_parse_result = file_parser.parse_file(&args.filename);
     if let Err(error) = file_parse_result
     {
-        println!("{}", error.get_err_message().red());
+        println!("{}", error);
         return;
     }
     let rules = file_parse_result.unwrap();
@@ -69,7 +69,7 @@ fn main() {
         let nfa = NFA::build_from_rules(&rules);
         if nfa.is_err()
         {
-            println!("{}", format!("Error: {}", nfa.err().unwrap()).red());
+            println!("{}", nfa.err().unwrap());
             return;
         }
 
