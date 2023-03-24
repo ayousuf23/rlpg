@@ -134,6 +134,7 @@ fn test_rule_regex()
     assert_file_parse_failure("invalid_rule_regex.txt", FileParserErrorKind::InvalidRegex);
     assert_regex_build_failure("invalid_rule_regex2.txt");
     assert_regex_build_failure("invalid_rule_regex3.txt");
+    assert_file_parse_failure("invalid_rule_regex4.txt", FileParserErrorKind::InvalidActionCode);
 
     unsafe {
         // Test the right NFA is produced
