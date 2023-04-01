@@ -81,9 +81,11 @@ fn main() {
         /*println!("Enter a string to match: ");
         let mut to_check = String::new();
         std::io::stdin().read_line(&mut to_check).expect("failed to readline");
-        let to_check = to_check.trim().to_string();*/
+        let to_check = to_check.trim().to_string();
 
-        //DFASimulator::simulate_dfa(dfa, to_check.chars().collect());
+        let result = DFASimulator::simulate_dfa_and_get_tokens(dfa, &to_check);
+        println!("{:?}", result.0);
+        println!("{:?}", result.1);*/
 
         // Generate table dfa
         let mut table_builder = TableDFABuilder {

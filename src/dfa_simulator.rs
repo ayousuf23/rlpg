@@ -17,14 +17,6 @@ impl DFASimulator {
 
         while seq.len() > 0 && index <= seq.len() - 1
         {
-            // If this is an Accept state
-            if let crate::dfa_builder::DFANodeKind::Accept(token) = &(*next).kind 
-            {
-                if !token.is_empty() {
-                    tokens.push(token.to_string());
-                }
-            }
-
             // Get transition for any char or next char
             if let Some(dest) = (*next).raw_transitions.get(&TransitionKind::Character(seq[index]))
             {
@@ -34,7 +26,16 @@ impl DFASimulator {
                 next = *dest;
             }
             else {
-                return (false, tokens);
+                // If we reached the end of the DFA and arrived at an acceptance state
+                if let crate::dfa_builder::DFANodeKind::Accept(token) = &(*next).kind 
+                {
+                    if !token.is_empty() {
+                        tokens.push(token.to_string());
+                    }
+                    next = node;
+                } else {
+                    return (false, tokens);
+                }
             }
 
             index += 1;
@@ -50,6 +51,7 @@ impl DFASimulator {
         } else {
             return (false, tokens);
         }
+        //return (true, tokens);
     }
     
     pub unsafe fn simulate_dfa(node: *mut DFANode, string: &str) -> bool

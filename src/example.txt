@@ -1,2 +1,3 @@
 SECTION LEXER
 number [0-9]+
+letters [a-zA-Z]+

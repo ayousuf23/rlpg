@@ -83,19 +83,31 @@ impl CodeGen {
     let mut tokens: Vec<String> = Vec::new();
     while index < seq.len() {
         // Check if accepting state
-        if let Some(token) = is_accepting(curr_state)
-        {
-            tokens.push(token);
-        }
         
         // Perform transition or error
         let trans_kind = TransitionKind::Character(seq[index]);
-        curr_state = transition(curr_state, trans_kind);
+        if let Some(next_state) = transition(curr_state, trans_kind) {
+            curr_state = next_state
+        } else {
+            // if current state is accepting
+            if let Some(token) = is_accepting(curr_state)
+            {
+                if !token.is_empty() {
+                    tokens.push(token);
+                }
+                curr_state = 1;
+            }
+            else {
+                panic!();
+            }
+        }
         index += 1;
     }
     if let Some(token) = is_accepting(curr_state)
     {
-        tokens.push(token);
+        if !token.is_empty() {
+            tokens.push(token);
+        }
     }
     tokens
 }\n".to_string()
@@ -126,7 +138,7 @@ impl CodeGen {
 
     pub fn create_transition_function(&mut self) -> String
     {
-        let mut header: String = "fn transition(curr: i32, trans: TransitionKind) -> i32\n{\n".to_string();
+        let mut header: String = "fn transition(curr: i32, trans: TransitionKind) -> Option<i32>\n{\n".to_string();
 
         // For each kind of key
         for (key, value) in &self.table.transitions
@@ -145,7 +157,7 @@ impl CodeGen {
 
                     let inner_statement = format!("\t\t\tif trans_char == '{0}'\n \
                     \t\t\t{{\n \
-                        \t\t\t\treturn {1};\n\
+                        \t\t\t\treturn Some({1});\n\
                     \t\t\t}}\n", character, dest);
 
                     char_transition_statement = Some(char_transition_statement.unwrap() + &inner_statement);
@@ -154,7 +166,7 @@ impl CodeGen {
                 {
                     any_transition_statement = Some(format!("if let TransitionKind::AnyCharacter = trans\n \
                     \t\t\t{{ \n \
-                        \t\t\t\treturn {0};\n\
+                        \t\t\t\treturn Some({0});\n\
                     \t\t\t}}\n", dest));
                 }
             }
@@ -173,7 +185,7 @@ impl CodeGen {
             header += &if_statement;
         }
 
-        header += "\tpanic!();\n";
+        header += "\treturn None;\n";
         header += "}\n";
         return header;
     }

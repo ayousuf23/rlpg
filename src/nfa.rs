@@ -243,7 +243,7 @@ impl NFA {
                 new_nfa_end.kind = NFANodeKind::End;
             }
             
-            new_nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty, rule.priority);
+            //new_nfa_end.add_transition_to(Rc::clone(&start), TransitionKind::Empty, rule.priority);
             
             let new_nfa_end = Rc::new(Mutex::new(new_nfa_end));
             let mut nfa_end = nfa.end.as_ref().lock().unwrap();
