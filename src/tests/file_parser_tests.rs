@@ -182,3 +182,32 @@ fn test_rule_action_code()
     assert_file_parse_success("valid_action_code3.txt");
     assert_file_parse_success("valid_action_code4.txt");
 }
+
+// Grammar section tests
+
+// Test rules with duplicate names
+// Test rule containing 1st production with new/unknown symbol name
+// Test rule containing n-th production with new/unknown symbol name
+
+// Test rule missing ;
+// Test rule containing text after ;
+// Test rule production containing ;
+// Test rule missing | beginning
+// Test rule containing whitespace or text before |
+// Test rule containing empty production
+// Test rule with empty text after :
+// Test rule name/symbol containing special characters (non-letters and digits)
+
+// Test end rule symbol by itself
+// Test production by itself
+
+// Test empty lines between productions in a rule
+// Test rule without : after name
+// Test rule with whitespace before :
+
+// Test 1st line of rules after each other
+
+// Test grammar section with no rules
+// Test lexer section with gramamr section immideately afterwards (no lex rules)
+
+// Test section as a lexer rule name

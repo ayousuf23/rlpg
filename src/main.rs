@@ -52,7 +52,7 @@ fn main() {
 
     let args = Args::parse();
 
-    let mut file_parser = FileParser {};
+    let mut file_parser = FileParser::new();
 
     // Open the file
     let file_parse_result = file_parser.parse_file(&args.filename);
