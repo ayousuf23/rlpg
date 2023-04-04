@@ -5,8 +5,7 @@ fn file_parse(filename: &str) -> Result<Vec<Rule>, FileParserError>
     let path = "/Users/abdullah/Developer/rlpg/src/tests/file_parser_tests_resources/";
     let file_path = std::path::Path::new(path).join(filename);
 
-    let mut parser = FileParser {
-    };
+    let mut parser = FileParser::new();
 
     return parser.parse_file(file_path.as_path().to_str().unwrap());
 }
@@ -51,6 +50,7 @@ unsafe fn assert_regex(filename: &str, to_produce_token: &Vec<&str>, to_not_prod
         for item in to_produce_token
         {
             let (result, tokens) = nfa.simulate_and_get_token(item);
+            println!("{}", i);
             assert!(result);
             assert!(tokens[0].name == expected_tokens[i]);
             i += 1;
@@ -78,7 +78,9 @@ unsafe fn assert_regex(filename: &str, to_produce_token: &Vec<&str>, to_not_prod
         i = 0;
         for item in to_produce_token
         {
+            println!("{}", i);
             let (result, tokens) = DFASimulator::simulate_dfa_and_get_tokens(dfa, item);
+            println!("{}", result);
             assert!(result);
             assert!(tokens[0] == expected_tokens[i]);
             i += 1;
@@ -143,7 +145,7 @@ fn test_rule_regex()
         let to_reject = vec!["", " ", "hell", "    "];
         let tokens = vec!["rule1"];
         assert_regex("valid_rule_regex.txt", &to_produce_tokens, &to_not_produce_tokens, &to_reject, &tokens);
-        
+
         let to_produce_tokens = vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "12345", "57383", "   123", "56   "];
         let to_not_produce_tokens = vec![" ", "    ", "     "];
         let to_reject = vec!["", "a"];
@@ -183,31 +185,111 @@ fn test_rule_action_code()
     assert_file_parse_success("valid_action_code4.txt");
 }
 
+
+#[test]
+fn test_section_as_lexer_rule_name()
+{
+    assert_file_parse_failure("section_as_named_rule.txt", FileParserErrorKind::InvalidRuleName);
+}
+
 // Grammar section tests
 
-// Test rules with duplicate names
-// Test rule containing 1st production with new/unknown symbol name
-// Test rule containing n-th production with new/unknown symbol name
+#[test]
+fn test_empty_lexer_followed_by_empty_grammar_section()
+{
+    assert_file_parse_failure("empty_lexer_grammar.txt", FileParserErrorKind::NoRules);
+}
 
-// Test rule missing ;
-// Test rule containing text after ;
-// Test rule production containing ;
-// Test rule missing | beginning
-// Test rule containing whitespace or text before |
-// Test rule containing empty production
-// Test rule with empty text after :
-// Test rule name/symbol containing special characters (non-letters and digits)
 
-// Test end rule symbol by itself
-// Test production by itself
+#[test]
+fn test_empty_grammar_section()
+{
+    assert_file_parse_failure("grammar_tests/empty_grammar_section.txt", FileParserErrorKind::NoGrammarRules);
+}
 
-// Test empty lines between productions in a rule
-// Test rule without : after name
-// Test rule with whitespace before :
+#[test]
+fn test_duplicate_grammar_rule_names_fails()
+{
+    assert_file_parse_failure("duplicate_rule_name.txt", FileParserErrorKind::DuplicateGrammarRuleName);
+}
+/* 
+#[test]
+fn test_productions_with_new_symbols()
+{
+    assert_file_parse_failure("prod_with_new_symbol1.txt", FileParserErrorKind::UnknownSymbol);
+    assert_file_parse_failure("prod_with_new_symbol2.txt", FileParserErrorKind::UnknownSymbol);
+    assert_file_parse_failure("prod_with_new_symbol3.txt", FileParserErrorKind::UnknownSymbol);
+}
 
-// Test 1st line of rules after each other
+#[test]
+fn test_rule_missing_semicolon()
+{
+    assert_file_parse_failure("rule_missing_semicolon.txt", FileParserErrorKind::MissingGrammarRuleEndSymbol);
+}
 
-// Test grammar section with no rules
-// Test lexer section with gramamr section immideately afterwards (no lex rules)
+#[test]
+fn test_rule_formatting()
+{
+    assert_file_parse_failure("text_after_semicolon.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("prod_contain_semicolon.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("prod_missing_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
 
-// Test section as a lexer rule name
+    assert_file_parse_failure("text_before_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("whitespcae_before_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
+
+    assert_file_parse_failure("empty_production.txt", FileParserErrorKind::InvalidGrammarRule);
+
+    // Space before/after colon
+    assert_file_parse_failure("whitespace_before_colon.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("whitespace_after_colon.txt", FileParserErrorKind::InvalidGrammarRule);
+
+    // Rule name with special characters and ;
+    // Rule name with ;
+    assert_file_parse_failure("special_rule_name1.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("special_rule_name2.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("special_rule_name3.txt", FileParserErrorKind::InvalidGrammarRule);
+
+    // Semicolon by itself
+    assert_file_parse_failure("semicolon_by_itself.txt", FileParserErrorKind::InvalidGrammarRule);
+
+    // Production by itself
+    assert_file_parse_failure("prod_by_itself.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("prod_by_itself2.txt", FileParserErrorKind::InvalidGrammarRule);
+
+    // Empty line between productions
+    assert_file_parse_failure("empty_lines_between_prod.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("empty_lines_between_prod2.txt", FileParserErrorKind::InvalidGrammarRule);
+
+    // No : after name
+    assert_file_parse_failure("no_colon_after_name.txt", FileParserErrorKind::InvalidGrammarRule);
+
+    // Consecutive first lines
+    assert_file_parse_failure("consecutive_first_lines.txt", FileParserErrorKind::InvalidGrammarRule);
+}*/
+
+// Test rules with duplicate names // Done
+// Test rule containing 1st production with new/unknown symbol name // Done
+// Test rule containing n-th production with new/unknown symbol name // Done
+
+// Test rule missing ; // Done
+// Test rule containing text after ; // Done
+// Test rule production containing ; // Done
+// Test rule missing | beginning // Done
+// Test rule containing whitespace or text before | // Done
+// Test rule containing empty production // Done
+// Test rule with empty text after : // Done
+// Test rule with whitespace before : // Done
+// Test rule name/symbol containing special characters (non-letters and digits) // Done
+
+// Test end rule symbol by itself // Done
+// Test production by itself // Done
+
+// Test empty lines between productions in a rule // Done
+// Test rule without : after name // Done
+
+// Test 1st line of rules after each other // Done
+
+// Test grammar section with no rules // Done
+// Test lexer section with gramamr section immideately afterwards (no lex rules) // Done
+
+// Test section as a lexer rule name // Done

@@ -21,6 +21,8 @@ pub enum FileParserErrorKind {
     MissingGrammarRuleEndSymbol,
     NoGrammarRules,
     InvalidProduction,
+    DuplicateGrammarRuleName,
+    UnknownSymbol,
 }
 
 #[derive(Debug)]
@@ -50,6 +52,8 @@ impl FileParserError {
             FileParserErrorKind::MissingGrammarRuleEndSymbol => "The grammar rule is missing the end symbol (;).",
             FileParserErrorKind::NoGrammarRules => "The file has no grammar rules.",
             FileParserErrorKind::InvalidProduction => "The production is not a valid production.",
+            FileParserErrorKind::DuplicateGrammarRuleName => "There already exists a grammar rule with the same name.",
+            FileParserErrorKind::UnknownSymbol => "This symbol is not defined or has not been defined yet.",
         };
         return msg.to_string();
     }
@@ -117,11 +121,15 @@ impl FileSection {
 
 pub struct FileParser {
     curr_section: FileSection,
+    symbols: HashSet<String>,
 }
 
 impl FileParser {
     pub fn new() -> FileParser {
-        return FileParser {curr_section: FileSection::Lexer};
+        return FileParser {
+            curr_section: FileSection::Lexer,
+            symbols: HashSet::new(),
+        };
     }
 
     fn is_valid_section_header(&self, line: &str) -> bool {
@@ -154,7 +162,6 @@ impl FileParser {
         line.clear();
 
         let mut rules: Vec<Rule> = Vec::new();
-        let mut rule_names: HashSet<String> = HashSet::new();
         let mut rule_counter = 1;
         let mut found_grammar_section = false;
         while let Ok(result) = reader.read_line(&mut line) {
@@ -182,7 +189,7 @@ impl FileParser {
             rule_counter += 1;
 
             if let RuleKind::Named(name) = &rule.kind {
-                if !rule_names.insert(name.to_string()) {
+                if !self.symbols.insert(name.to_string()) {
                     return Err(FileParserError::new(FileParserErrorKind::DuplicateName, None));
                 }
             }
@@ -256,9 +263,14 @@ impl FileParser {
             return Err(FileParserError::new(FileParserErrorKind::InvalidRuleName, None));
         }
 
+        // Catch invalid names here
+        if name == "SECTION" {
+            return Err(FileParserError::new(FileParserErrorKind::InvalidRuleName, None));
+        }
+
         if name == "unnamed" {
             return Ok(RuleKind::Unnamed);
-        } else {
+        } else  {
             return Ok(RuleKind::Named(name));
         }
     }

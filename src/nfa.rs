@@ -67,7 +67,7 @@ impl NFANode {
     pub unsafe fn new(kind: NFANodeKind, data: String) -> NFANode {
         static mut COUNTER: i32 = 0;
         COUNTER += 1;
-        //println!("{}", COUNTER);
+        println!("{}", COUNTER);
         NFANode { kind: kind, data: data, transitions: Vec::new(), id: COUNTER }
     }
 
@@ -130,7 +130,7 @@ impl NFANode {
         let mut tokens: Vec<Token> = Vec::new();
         let mut success = false;
         let mut stack: VecDeque<NFASimState> = VecDeque::new();
-        stack.push_back(NFASimState { destination: node, start_i: 0, end_i: 0 });
+        stack.push_back(NFASimState { destination: Rc::clone(&node), start_i: 0, end_i: 0 });
         let mut min_start_i = 0;
 
         while let Some(mut state) = stack.pop_back() {
@@ -143,7 +143,6 @@ impl NFANode {
             let mut char = None;
 
             if let NFANodeKind::EndWithToken(token) = &curr_node.kind  {
-               
                 let lexeme = chars[state.start_i..state.end_i].into_iter().collect();
                 tokens.push(Token {name: token.to_string(), lexeme, line: 1, start_col: state.start_i, end_col: state.end_i - 1});
             }
@@ -155,11 +154,7 @@ impl NFANode {
             if state.end_i >= chars.len()
             {
                 match &curr_node.kind {
-                    NFANodeKind::EndWithToken(token) => {
-                        success = true;
-                        break;
-                    },
-                    NFANodeKind::End => {
+                    NFANodeKind::EndWithToken(_) | NFANodeKind::End => {
                         success = true;
                         break;
                     },
@@ -179,6 +174,18 @@ impl NFANode {
                     _ => continue,
                 };
                 stack.push_back(NFASimState {destination: Rc::clone(&trans.destination), start_i: state.start_i, end_i: new_index});
+            }
+
+            // If this is an End state with no transitions, return to start
+            if curr_node.transitions.len() == 0 {
+                //println!("")
+                match curr_node.kind {
+                    NFANodeKind::End |  NFANodeKind::EndWithToken(_) => { 
+                        stack.push_back(NFASimState {destination: Rc::clone(&node), start_i: state.start_i + 1, end_i: state.end_i + 1});
+                        success = true;
+                    },
+                    _ => (),
+                }
             }
         }
         return (success, tokens);
@@ -230,6 +237,7 @@ impl NFA {
 
             // Create a new end node
             let mut new_nfa_end = NFANode::new_end();
+            println!("NEW END ID: {}", new_nfa_end.id);
             
             
             if let crate::file_parser::RuleKind::Named(name) = &rule.kind {

@@ -17,6 +17,7 @@ impl DFASimulator {
 
         while seq.len() > 0 && index <= seq.len() - 1
         {
+            println!("DFA Index: {}", index);
             // Get transition for any char or next char
             if let Some(dest) = (*next).raw_transitions.get(&TransitionKind::Character(seq[index]))
             {
@@ -27,12 +28,15 @@ impl DFASimulator {
             }
             else {
                 // If we reached the end of the DFA and arrived at an acceptance state
+                println!("here");
                 if let crate::dfa_builder::DFANodeKind::Accept(token) = &(*next).kind 
                 {
                     if !token.is_empty() {
                         tokens.push(token.to_string());
                     }
                     next = node;
+                    // Add CONTINUE here
+                    continue;
                 } else {
                     return (false, tokens);
                 }
@@ -40,6 +44,9 @@ impl DFASimulator {
 
             index += 1;
         }
+
+        println!("{:?}", (*next).states);
+        println!("{:?}", (*next).kind);
 
         // Get last node
         if let crate::dfa_builder::DFANodeKind::Accept(token) = &(*next).kind 
