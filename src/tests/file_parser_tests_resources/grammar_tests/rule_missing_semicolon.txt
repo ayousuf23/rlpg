@@ -1,0 +1,4 @@
+SECTION LEXER
+rule1 hello
+SECTION GRAMMAR
+rule2: rule1

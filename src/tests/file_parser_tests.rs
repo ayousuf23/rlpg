@@ -233,7 +233,7 @@ fn test_rule_missing_semicolon()
 fn test_rule_formatting()
 {
     assert_file_parse_failure("grammar_tests/text_after_semicolon.txt", FileParserErrorKind::InvalidGrammarRule);
-    assert_file_parse_failure("grammar_tests/prod_contain_semicolon.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/prod_contain_semicolon.txt", FileParserErrorKind::InvalidIdentifier);
     /*assert_file_parse_failure("grammar_tests/prod_missing_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
 
     assert_file_parse_failure("text_before_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);

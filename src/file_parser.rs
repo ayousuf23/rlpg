@@ -23,6 +23,7 @@ pub enum FileParserErrorKind {
     InvalidProduction,
     DuplicateGrammarRuleName,
     UnknownSymbol,
+    InvalidIdentifier,
 }
 
 #[derive(Debug)]
@@ -54,6 +55,7 @@ impl FileParserError {
             FileParserErrorKind::InvalidProduction => "The production is not a valid production.",
             FileParserErrorKind::DuplicateGrammarRuleName => "There already exists a grammar rule with the same name.",
             FileParserErrorKind::UnknownSymbol => "This symbol is not defined or has not been defined yet.",
+            FileParserErrorKind::InvalidIdentifier => "The identifer is invalid because it contains special or invalid characters.",
         };
         return msg.to_string();
     }
@@ -343,6 +345,9 @@ impl FileParser {
                 } else {
                     in_middle_of_rule = false;
                     let t = prev_rule.take().unwrap();
+                    if !self.does_rule_contain_valid_identifiers(&t) {
+                        return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
+                    }
                     if self.does_rule_contain_unknown(&t) {
                         // Throw an error if unknown symbol is found
                         return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
@@ -495,5 +500,26 @@ impl FileParser {
             }
         }
         return false;
+    }
+
+    fn does_rule_contain_valid_identifiers(&self, rule: &GrammarRule) -> bool
+    {
+        for prod in &rule.productions {
+            for sym in prod {
+                if !FileParser::is_identifier_valid(sym) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    fn is_identifier_valid(identifier: &str) -> bool
+    {
+        if identifier.contains(';')
+        {
+            return false;
+        }
+        return true;
     }
 }

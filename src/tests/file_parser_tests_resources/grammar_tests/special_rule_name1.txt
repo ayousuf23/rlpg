@@ -1,0 +1,5 @@
+SECTION LEXER
+rule1 hello
+SECTION GRAMMAR
+\hello: rule1
+;
