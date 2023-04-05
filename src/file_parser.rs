@@ -304,7 +304,7 @@ impl FileParser {
         return parts;
     }
 
-    fn parse_grammar_section(&self, reader: &mut BufReader<File>) -> Result<Vec<GrammarRule>, FileParserError>
+    fn parse_grammar_section(&mut self, reader: &mut BufReader<File>) -> Result<Vec<GrammarRule>, FileParserError>
     {
         // Parse each rule until the end
         let mut line = String::new();
@@ -342,9 +342,13 @@ impl FileParser {
                     }
                 } else {
                     in_middle_of_rule = false;
-                    let t = prev_rule.take();
-                    rules.push(t.unwrap());
-                    //rev_rule = None;
+                    let t = prev_rule.take().unwrap();
+                    if self.does_rule_contain_unknown(&t) {
+                        // Throw an error if unknown symbol is found
+                        return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
+                    }
+                    rules.push(t);
+                    prev_rule = None;
                 }
             }
             else {
@@ -355,7 +359,12 @@ impl FileParser {
                         return Err(parser_error);
                     } 
                 } else {
-                    prev_rule = Some(first_prod.unwrap());
+                    let rule = first_prod.unwrap();
+                    if !self.symbols.insert(rule.name.to_string()) {
+                        // Throw a duplicate name error
+                        return Err(FileParserError::new(FileParserErrorKind::DuplicateGrammarRuleName, None));
+                    }
+                    prev_rule = Some(rule);
                     in_middle_of_rule = true;
                 }
             }
@@ -440,10 +449,9 @@ impl FileParser {
         if line[line_index] != ';' {
             return Err(FileParserError::new(FileParserErrorKind::MissingGrammarRuleEndSymbol, None));
         }
-        println!("hello2");
         line_index += 1;
 
-        if let Some(temp_name) = self.parse_identifier(&line, &mut line_index) {
+        if let Some(_) = self.parse_identifier(&line, &mut line_index) {
             return Err(FileParserError::new(FileParserErrorKind::InvalidGrammarRule, None));
         }
         
@@ -475,5 +483,17 @@ impl FileParser {
             return None;
         }
         return Some(identifier);
+    }
+
+    fn does_rule_contain_unknown(&self, rule: &GrammarRule) -> bool
+    {
+        for prod in &rule.productions {
+            for sym in prod {
+                if !self.symbols.contains(sym) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

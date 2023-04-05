@@ -210,29 +210,31 @@ fn test_empty_grammar_section()
 #[test]
 fn test_duplicate_grammar_rule_names_fails()
 {
-    assert_file_parse_failure("duplicate_rule_name.txt", FileParserErrorKind::DuplicateGrammarRuleName);
+    assert_file_parse_failure("grammar_tests/duplicate_rule_name.txt", FileParserErrorKind::DuplicateGrammarRuleName);
 }
-/* 
+
 #[test]
 fn test_productions_with_new_symbols()
 {
-    assert_file_parse_failure("prod_with_new_symbol1.txt", FileParserErrorKind::UnknownSymbol);
-    assert_file_parse_failure("prod_with_new_symbol2.txt", FileParserErrorKind::UnknownSymbol);
-    assert_file_parse_failure("prod_with_new_symbol3.txt", FileParserErrorKind::UnknownSymbol);
+    assert_file_parse_failure("grammar_tests/prod_with_new_symbol1.txt", FileParserErrorKind::UnknownSymbol);
+    assert_file_parse_failure("grammar_tests/prod_with_new_symbol2.txt", FileParserErrorKind::UnknownSymbol);
+    assert_file_parse_failure("grammar_tests/prod_with_new_symbol3.txt", FileParserErrorKind::UnknownSymbol);
 }
+
 
 #[test]
 fn test_rule_missing_semicolon()
 {
-    assert_file_parse_failure("rule_missing_semicolon.txt", FileParserErrorKind::MissingGrammarRuleEndSymbol);
+    assert_file_parse_failure("grammar_tests/rule_missing_semicolon.txt", FileParserErrorKind::MissingGrammarRuleEndSymbol);
 }
 
+ 
 #[test]
 fn test_rule_formatting()
 {
-    assert_file_parse_failure("text_after_semicolon.txt", FileParserErrorKind::InvalidGrammarRule);
-    assert_file_parse_failure("prod_contain_semicolon.txt", FileParserErrorKind::InvalidGrammarRule);
-    assert_file_parse_failure("prod_missing_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/text_after_semicolon.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/prod_contain_semicolon.txt", FileParserErrorKind::InvalidGrammarRule);
+    /*assert_file_parse_failure("grammar_tests/prod_missing_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
 
     assert_file_parse_failure("text_before_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
     assert_file_parse_failure("whitespcae_before_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
@@ -265,7 +267,8 @@ fn test_rule_formatting()
 
     // Consecutive first lines
     assert_file_parse_failure("consecutive_first_lines.txt", FileParserErrorKind::InvalidGrammarRule);
-}*/
+    */
+}
 
 // Test rules with duplicate names // Done
 // Test rule containing 1st production with new/unknown symbol name // Done
