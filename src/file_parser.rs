@@ -399,6 +399,11 @@ impl FileParser {
             return Err(FileParserError::new(FileParserErrorKind::EmptyLine, None));
         }
 
+        if !FileParser::is_identifier_valid(&name)
+        {
+            return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
+        }
+
         // Check if reached end
         if line_index >= line.len() {
             return Err(FileParserError::new(FileParserErrorKind::LineEndedPrematurely, None));
@@ -504,6 +509,11 @@ impl FileParser {
 
     fn does_rule_contain_valid_identifiers(&self, rule: &GrammarRule) -> bool
     {
+        if !FileParser::is_identifier_valid(&rule.name)
+        {
+            return false;
+        } 
+
         for prod in &rule.productions {
             for sym in prod {
                 if !FileParser::is_identifier_valid(sym) {
@@ -516,9 +526,11 @@ impl FileParser {
 
     fn is_identifier_valid(identifier: &str) -> bool
     {
-        if identifier.contains(';')
-        {
-            return false;
+        for c in identifier.chars() {
+            if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'z') 
+            || ('A' <= c && c <= 'Z') || c == '_' || c == '-') {
+                return false;
+            }
         }
         return true;
     }

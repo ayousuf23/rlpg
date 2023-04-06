@@ -233,66 +233,39 @@ fn test_rule_missing_semicolon()
 fn test_rule_formatting()
 {
     assert_file_parse_failure("grammar_tests/text_after_semicolon.txt", FileParserErrorKind::InvalidGrammarRule);
-    assert_file_parse_failure("grammar_tests/prod_contain_semicolon.txt", FileParserErrorKind::InvalidIdentifier);
-    /*assert_file_parse_failure("grammar_tests/prod_missing_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/prod_contain_semicolon.txt", FileParserErrorKind::MissingGrammarRuleEndSymbol);
+    assert_file_parse_failure("grammar_tests/prod_missing_begin_symbol.txt", FileParserErrorKind::InvalidProduction);
 
-    assert_file_parse_failure("text_before_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
-    assert_file_parse_failure("whitespcae_before_begin_symbol.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/text_before_begin_symbol.txt", FileParserErrorKind::InvalidProduction);
+    assert_file_parse_failure("grammar_tests/whitespace_before_begin_symbol.txt", FileParserErrorKind::InvalidProduction);
 
-    assert_file_parse_failure("empty_production.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/empty_production.txt", FileParserErrorKind::InvalidProduction);
 
     // Space before/after colon
-    assert_file_parse_failure("whitespace_before_colon.txt", FileParserErrorKind::InvalidGrammarRule);
-    assert_file_parse_failure("whitespace_after_colon.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/whitespace_before_colon.txt", FileParserErrorKind::InvalidGrammarRule);
+    // Should not result in an error
+    assert_file_parse_success("grammar_tests/whitespace_after_colon.txt");
 
     // Rule name with special characters and ;
     // Rule name with ;
-    assert_file_parse_failure("special_rule_name1.txt", FileParserErrorKind::InvalidGrammarRule);
-    assert_file_parse_failure("special_rule_name2.txt", FileParserErrorKind::InvalidGrammarRule);
-    assert_file_parse_failure("special_rule_name3.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/special_rule_name1.txt", FileParserErrorKind::InvalidIdentifier);
+    assert_file_parse_failure("grammar_tests/special_rule_name2.txt", FileParserErrorKind::InvalidIdentifier);
+    assert_file_parse_failure("grammar_tests/special_rule_name3.txt", FileParserErrorKind::InvalidIdentifier);
 
     // Semicolon by itself
-    assert_file_parse_failure("semicolon_by_itself.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/semicolon_by_itself.txt", FileParserErrorKind::InvalidIdentifier);
 
     // Production by itself
-    assert_file_parse_failure("prod_by_itself.txt", FileParserErrorKind::InvalidGrammarRule);
-    assert_file_parse_failure("prod_by_itself2.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/prod_by_itself.txt", FileParserErrorKind::InvalidIdentifier);
+    assert_file_parse_failure("grammar_tests/prod_by_itself2.txt", FileParserErrorKind::InvalidIdentifier);
 
     // Empty line between productions
-    assert_file_parse_failure("empty_lines_between_prod.txt", FileParserErrorKind::InvalidGrammarRule);
-    assert_file_parse_failure("empty_lines_between_prod2.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/empty_lines_between_prod.txt", FileParserErrorKind::InvalidProduction);
+    assert_file_parse_failure("grammar_tests/empty_lines_between_prod2.txt", FileParserErrorKind::InvalidProduction);
 
     // No : after name
-    assert_file_parse_failure("no_colon_after_name.txt", FileParserErrorKind::InvalidGrammarRule);
+    assert_file_parse_failure("grammar_tests/no_colon_after_name.txt", FileParserErrorKind::InvalidGrammarRule);
 
     // Consecutive first lines
-    assert_file_parse_failure("consecutive_first_lines.txt", FileParserErrorKind::InvalidGrammarRule);
-    */
+    assert_file_parse_failure("grammar_tests/consecutive_first_lines.txt", FileParserErrorKind::InvalidProduction);
 }
-
-// Test rules with duplicate names // Done
-// Test rule containing 1st production with new/unknown symbol name // Done
-// Test rule containing n-th production with new/unknown symbol name // Done
-
-// Test rule missing ; // Done
-// Test rule containing text after ; // Done
-// Test rule production containing ; // Done
-// Test rule missing | beginning // Done
-// Test rule containing whitespace or text before | // Done
-// Test rule containing empty production // Done
-// Test rule with empty text after : // Done
-// Test rule with whitespace before : // Done
-// Test rule name/symbol containing special characters (non-letters and digits) // Done
-
-// Test end rule symbol by itself // Done
-// Test production by itself // Done
-
-// Test empty lines between productions in a rule // Done
-// Test rule without : after name // Done
-
-// Test 1st line of rules after each other // Done
-
-// Test grammar section with no rules // Done
-// Test lexer section with gramamr section immideately afterwards (no lex rules) // Done
-
-// Test section as a lexer rule name // Done
