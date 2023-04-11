@@ -1,3 +1,4 @@
+#[derive(Debug, Clone)]
 pub struct Token {
     pub name: String,
     pub lexeme: String,
