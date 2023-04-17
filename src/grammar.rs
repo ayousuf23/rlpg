@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, BTreeSet};
 
-#[derive(Eq, Hash, PartialEq, Clone, Debug)]
+#[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
 pub struct Symbol {
     pub name: String,
     pub is_terminal: bool,
@@ -16,16 +16,17 @@ pub struct Production {
     pub prod: Vec<Symbol>,
 }
 
-#[derive(Eq, Hash, PartialEq, Clone, Debug)]
+#[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
 pub struct LRItem {
     pub production: *const Production,
     pub placeholder_index: usize,
     pub lookup_sym: Symbol,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Hash, PartialEq, Debug, PartialOrd, Ord)]
 pub struct GrammarSet {
-    pub set: BTreeSet<LRItem>
+    pub set: BTreeSet<LRItem>,
+    pub transitions: Vec<(Symbol, i32)>
 }
 
 pub enum Action {
@@ -95,10 +96,10 @@ impl GrammarGenerator {
     }
 
     // Function to compute closure
-    pub fn get_closure(&self, set: &HashSet<LRItem>) -> HashSet<LRItem>
+    pub fn get_closure(&self, set: &BTreeSet<LRItem>) -> BTreeSet<LRItem>
     {   
         // Keep track of the items that are done
-        let mut done = HashSet::new();
+        let mut done = BTreeSet::new();
 
         // Keep a stack of the items that need to be dealt with
         let mut stack: Vec<LRItem> = Vec::new();
@@ -162,9 +163,9 @@ impl GrammarGenerator {
         return done;
     }
 
-    fn get_goto(&self, set: &HashSet<LRItem>, symbol: Symbol) -> HashSet<LRItem>
+    fn get_goto(&self, set: &BTreeSet<LRItem>, symbol: Symbol) -> BTreeSet<LRItem>
     {
-        let mut moved = HashSet::new();
+        let mut moved = BTreeSet::new();
         for item in set {
             unsafe {
                 if item.is_next_symbol(&symbol) {
@@ -184,13 +185,40 @@ impl GrammarGenerator {
 
     fn build_cannocial_collection(&self, goal: GrammarSet)
     {
-        let cc0 = self.get_closure(&goal.set);
+        let cc0 = GrammarSet{set: self.get_closure(&goal.set)};
 
-        let mut stack: Vec<HashSet<LRItem>> = Vec::new();
+        let mut stack: Vec<GrammarSet> = Vec::new();
         stack.push(cc0);
 
         // Mark processed sets here
-        let mut seen: HashSet<>
+        let mut seen: BTreeSet<GrammarSet> = BTreeSet::new();
+
+        while !stack.is_empty() {
+            let set = stack.remove(0);
+
+            if !seen.insert(set) {
+                continue;
+            }
+
+            // For each x following . in an item in CC
+            let mut x_set: BTreeSet<Symbol> = BTreeSet::new();
+            for subset in &set.set {
+                unsafe {
+                    if let Some(next_sym) = subset.get_next_symbol() {
+                        x_set.insert(next_sym);
+                    }
+                }
+            }
+
+            for x in x_set {
+                let temp = self.get_goto(&set.set, x);
+                stack.push(temp);
+
+                // get pointer
+                let x = &temp as *const BTreeSet<LRItem>;
+                // Record transition from cc_i to temp on x
+            }
+        }
     }
 
     // Get sequence of symbols after a certain index in an LR item
