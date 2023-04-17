@@ -1,9 +1,11 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 
 use colored::Colorize;
+
+use crate::grammar::{Production, Symbol};
 
 #[derive(Debug, PartialEq)]
 pub enum FileParserErrorKind {
@@ -123,14 +125,14 @@ impl FileSection {
 
 pub struct FileParser {
     curr_section: FileSection,
-    symbols: HashSet<String>,
+    symbols: HashMap<String, bool>,
 }
 
 impl FileParser {
     pub fn new() -> FileParser {
         return FileParser {
             curr_section: FileSection::Lexer,
-            symbols: HashSet::new(),
+            symbols: HashMap::new(),
         };
     }
 
@@ -191,7 +193,8 @@ impl FileParser {
             rule_counter += 1;
 
             if let RuleKind::Named(name) = &rule.kind {
-                if !self.symbols.insert(name.to_string()) {
+                // Return an error if a symbol with the same name already exists
+                if let Some(_) = self.symbols.insert(name.to_string(), false) {
                     return Err(FileParserError::new(FileParserErrorKind::DuplicateName, None));
                 }
             }
@@ -207,7 +210,6 @@ impl FileParser {
         // Parse grammar
         if found_grammar_section {
             let result = self.parse_grammar_section(&mut reader);
-            //return ;
             if result.is_err() {
                 return Err(result.err().unwrap());
             }
@@ -306,11 +308,11 @@ impl FileParser {
         return parts;
     }
 
-    fn parse_grammar_section(&mut self, reader: &mut BufReader<File>) -> Result<Vec<GrammarRule>, FileParserError>
+    fn parse_grammar_section(&mut self, reader: &mut BufReader<File>) -> Result<Vec<crate::grammar::GrammarRule>, FileParserError>
     {
         // Parse each rule until the end
         let mut line = String::new();
-        let mut rules: Vec<GrammarRule> = Vec::new();
+        let mut rules: Vec<crate::grammar::GrammarRule> = Vec::new();
         let mut prev_rule: Option<GrammarRule> = None;
         let mut in_middle_of_rule = false;
 
@@ -352,7 +354,8 @@ impl FileParser {
                         // Throw an error if unknown symbol is found
                         return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
                     }
-                    rules.push(t);
+                    // Convert grammar rule to grammar rule
+                    rules.push(self.convert_grammar_rule_representation(t));
                     prev_rule = None;
                 }
             }
@@ -365,7 +368,7 @@ impl FileParser {
                     } 
                 } else {
                     let rule = first_prod.unwrap();
-                    if !self.symbols.insert(rule.name.to_string()) {
+                    if let Some(_) = self.symbols.insert(rule.name.to_string(), false) {
                         // Throw a duplicate name error
                         return Err(FileParserError::new(FileParserErrorKind::DuplicateGrammarRuleName, None));
                     }
@@ -499,7 +502,7 @@ impl FileParser {
     {
         for prod in &rule.productions {
             for sym in prod {
-                if !self.symbols.contains(sym) {
+                if !self.symbols.contains_key(sym) {
                     return true;
                 }
             }
@@ -533,5 +536,37 @@ impl FileParser {
             }
         }
         return true;
+    }
+
+    fn convert_grammar_rule_representation(&self, rule: GrammarRule) -> crate::grammar::GrammarRule
+    {
+        let mut productions: Vec<*mut Production> = Vec::new();
+        // Create productions
+        for prod in rule.productions {
+            // Create vec of symbols
+            let mut symbols: Vec<Symbol> = Vec::new();
+            for sym in prod {
+                // Convert to a symbol
+                if let Some(is_terminal) = self.symbols.get(&sym) {
+                    symbols.push(Symbol { name: sym, is_terminal: *is_terminal });
+                }
+                else {
+                    // Throw an error
+                    todo!();
+                }
+            }
+
+            // Create a Production struct
+            let new_prod = Production {
+                prod: symbols
+            };
+            let new_prod_pointer = Box::into_raw(Box::new(new_prod));
+            productions.push(new_prod_pointer);
+        }
+
+        return crate::grammar::GrammarRule {
+            name: rule.name,
+            productions
+        };
     }
 }

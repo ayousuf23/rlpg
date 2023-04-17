@@ -13,6 +13,7 @@ use crate::dfa_builder::DFABuilder;
 use crate::dfa_simulator::DFASimulator;
 use crate::error::RlpgErr;
 use crate::file_parser::FileParser;
+use crate::grammar::LRItem;
 pub use crate::nfa_builder::NFABuilder;
 
 pub mod nfa;
@@ -151,6 +152,17 @@ fn main() {
         let mut set = HashSet::new();
         let str = vec![nt1_symbol.clone()];
         grammar_gen.get_first_set(&str, &mut set);
-        println!("{:?}", set);
+        //println!("{:?}", set);
+
+        // Create LR Item
+        let lr_item = LRItem { production: nt2_prod_raw, placeholder_index: 0, lookup_sym: Symbol { name: "eof".to_string(), is_terminal: true }};
+        let mut clos_set = HashSet::new();
+        clos_set.insert(lr_item);
+
+        let result = grammar_gen.get_closure(&clos_set);
+        for x in &result {
+            println!("Production: {:?}, lookup: {:?}", *(x.production), x.lookup_sym);
+        }
+        println!("{:?}", result);
     }
 }
