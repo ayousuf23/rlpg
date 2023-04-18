@@ -26,7 +26,13 @@ pub struct LRItem {
 #[derive(Eq, Hash, PartialEq, Debug, PartialOrd, Ord)]
 pub struct GrammarSet {
     pub set: BTreeSet<LRItem>,
-    pub transitions: Vec<(Symbol, i32)>
+    //pub transitions: Vec<(Symbol, i32)>
+}
+
+impl GrammarSet {
+    pub fn new(set: BTreeSet<LRItem>) -> GrammarSet {
+        GrammarSet { set: set }
+    }
 }
 
 pub enum Action {
@@ -185,17 +191,20 @@ impl GrammarGenerator {
 
     fn build_cannocial_collection(&self, goal: GrammarSet)
     {
-        let cc0 = GrammarSet{set: self.get_closure(&goal.set)};
+        let cc0 = Box::new(GrammarSet{set: self.get_closure(&goal.set)});
 
-        let mut stack: BTreeSet<GrammarSet> = BTreeSet::new();
+        let mut stack: BTreeSet<Box<GrammarSet>> = BTreeSet::new();
         stack.insert(cc0);
 
         // Mark processed sets here
-        let mut seen: BTreeSet<GrammarSet> = BTreeSet::new();
+        let mut seen: BTreeSet<Box<GrammarSet>> = BTreeSet::new();
+
+        let mut transitions: Vec<(*const GrammarSet, Symbol, *const GrammarSet)> = Vec::new();
 
         while !stack.is_empty() {
             let set = stack.pop_first().unwrap();
 
+            // Skip the set if it has been seen already
             if seen.contains(&set) {
                 continue;
             }
@@ -211,26 +220,35 @@ impl GrammarGenerator {
             }
 
             for x in x_set {
-                let temp = self.get_goto(&set.set, x);
+                let temp = Box::new(GrammarSet::new(self.get_goto(&set.set, x)));
                 
-                
-                if !seen.contains(&temp) {
-                    stack.push(temp);
+                // Destination set
+                let destination_set: *const GrammarSet;
+
+                // Check if this set was already seen
+                if let Some(temp_already_seen) = seen.get(&temp) {
+                    // Add transition from set to temp_already_seen
+                    destination_set = &**temp_already_seen as *const GrammarSet;
+                }
+                else {
+                    // Add temp to stack if not already on stack
+                    if let Some(temp_stack) = stack.get(&temp) {
+                        // Add transition from set to temp_stack
+                        destination_set = &**temp_stack as *const GrammarSet;
+                    } else {
+                        destination_set = &*temp as *const GrammarSet;
+                        stack.insert(temp);
+                    }
                 }
 
-                // If was seen already, get pointer to the one seen
-                let temp_seen = seen.get(value).unwrap();
-                
-                let pointer_to_temp = &temp as *const BTreeSet<LRItem>;
+                // Record transition from cc_i to temp on x
+                transitions.push((, destination_set))
 
                 // IDEA: Make closure & goto return pointers
                 // easy to check for hashing, store all possible set
                 // OR use box pointers                
-                
 
-                // get pointer
-                let x = &temp as *const BTreeSet<LRItem>;
-                // Record transition from cc_i to temp on x
+                
             }
 
             // Insert into seen (mark set)
