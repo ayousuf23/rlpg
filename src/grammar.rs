@@ -187,16 +187,16 @@ impl GrammarGenerator {
     {
         let cc0 = GrammarSet{set: self.get_closure(&goal.set)};
 
-        let mut stack: Vec<GrammarSet> = Vec::new();
-        stack.push(cc0);
+        let mut stack: BTreeSet<GrammarSet> = BTreeSet::new();
+        stack.insert(cc0);
 
         // Mark processed sets here
         let mut seen: BTreeSet<GrammarSet> = BTreeSet::new();
 
         while !stack.is_empty() {
-            let set = stack.remove(0);
+            let set = stack.pop_first().unwrap();
 
-            if !seen.insert(set) {
+            if seen.contains(&set) {
                 continue;
             }
 
@@ -212,12 +212,29 @@ impl GrammarGenerator {
 
             for x in x_set {
                 let temp = self.get_goto(&set.set, x);
-                stack.push(temp);
+                
+                
+                if !seen.contains(&temp) {
+                    stack.push(temp);
+                }
+
+                // If was seen already, get pointer to the one seen
+                let temp_seen = seen.get(value).unwrap();
+                
+                let pointer_to_temp = &temp as *const BTreeSet<LRItem>;
+
+                // IDEA: Make closure & goto return pointers
+                // easy to check for hashing, store all possible set
+                // OR use box pointers                
+                
 
                 // get pointer
                 let x = &temp as *const BTreeSet<LRItem>;
                 // Record transition from cc_i to temp on x
             }
+
+            // Insert into seen (mark set)
+            seen.insert(set);
         }
     }
 
