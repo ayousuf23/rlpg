@@ -14,12 +14,12 @@ pub struct GrammarRule {
 
 #[derive(Debug)]
 pub struct Production {
+    pub lhs: Symbol,
     pub prod: Vec<Symbol>,
 }
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
 pub struct LRItem {
-    pub lhs: Symbol,
     pub production: *const Production,
     pub placeholder_index: usize,
     pub lookup_sym: Symbol,
@@ -276,7 +276,7 @@ impl GrammarGenerator {
                 }
                 else if i.is_lookup_at_end() {
                     // Add reduction action
-                    let reduce_action = Action::Reduce(i.lhs, i.production);
+                    let reduce_action = Action::Reduce((*i.production).lhs.clone(), i.production);
                     self.action_table.insert((cc_count, i.lookup_sym), reduce_action);
                 }
             }

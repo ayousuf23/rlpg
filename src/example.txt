@@ -1,6 +1,17 @@
 SECTION LEXER
 number [0-9]+
 word [a-zA-Z]+
+left (
+right )
 SECTION GRAMMAR
-root: number
+
+pair: left pair right
+| left right
+;
+
+list: list pair
+| pair
+;
+
+root: list
 ;
