@@ -2,5 +2,5 @@ SECTION LEXER
 number [0-9]+
 word [a-zA-Z]+
 SECTION GRAMMAR
-rule: number
+root: number
 ;

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, BTreeSet};
+use std::collections::{HashMap, HashSet, BTreeSet, BTreeMap};
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
 pub struct Symbol {
@@ -6,6 +6,7 @@ pub struct Symbol {
     pub is_terminal: bool,
 }
 
+#[derive(Debug)]
 pub struct GrammarRule {
     pub name: String,
     pub productions: Vec<*mut Production>,
@@ -18,6 +19,7 @@ pub struct Production {
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
 pub struct LRItem {
+    pub lhs: Symbol,
     pub production: *const Production,
     pub placeholder_index: usize,
     pub lookup_sym: Symbol,
@@ -26,7 +28,6 @@ pub struct LRItem {
 #[derive(Eq, Hash, PartialEq, Debug, PartialOrd, Ord)]
 pub struct GrammarSet {
     pub set: BTreeSet<LRItem>,
-    //pub transitions: Vec<(Symbol, i32)>
 }
 
 impl GrammarSet {
@@ -35,10 +36,11 @@ impl GrammarSet {
     }
 }
 
+#[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum Action {
     Shift,
-    Reduce,
-    Accept
+    Reduce(Symbol, *const Production),
+    Accept,
 }
 
 impl LRItem {
@@ -58,17 +60,23 @@ impl LRItem {
         }
         return false;
     }
+
+    unsafe fn is_lookup_at_end(&self) -> bool {
+        return self.placeholder_index >= (*self.production).prod.len();
+    }
 }
 
 pub struct GrammarGenerator {
     rules: HashMap<Symbol, GrammarRule>,
+    transitions: HashMap<*const GrammarSet, Vec<(Symbol, *const GrammarSet)>>,
+    pub action_table: BTreeMap<(i32, Symbol), Action>
 }
 
 impl GrammarGenerator {
 
     pub fn new() -> GrammarGenerator
     {
-        GrammarGenerator { rules: HashMap::new() }
+        GrammarGenerator { rules: HashMap::new(), transitions: HashMap::new(), action_table: BTreeMap::new() }
     }
 
     pub fn add_rule(&mut self, symbol: Symbol, rule: GrammarRule)
@@ -129,15 +137,15 @@ impl GrammarGenerator {
 
                 // Get the next symbol
                 let next_sym = (*lr_item.production).prod[lr_item.placeholder_index].clone();
-                println!("{:?}", next_sym);
+                //println!("{:?}", next_sym);
 
                 // Go to the next lr_item if the next symbol is a terminal
                 if next_sym.is_terminal {
                     continue;
                 }
 
-                println!("hello");
-
+                //println!("hello");
+                println!("{:?}", next_sym);
                 // Get the grammar rule associated with next_sym
                 let rule = match self.rules.get(&next_sym) {
                     Some(val) => val,
@@ -149,11 +157,11 @@ impl GrammarGenerator {
 
                 // Get the symbols after next_sym
                 let syms_after_next_sym = self.get_next_symbols(&lr_item, &lr_item.placeholder_index + 1);
-                println!("{:?}", syms_after_next_sym);
+                //println!("{:?}", syms_after_next_sym);
                 // Get the first set of the above symbols
                 let mut first_set_of_syms_after_next_sym = HashSet::new();
                 self.get_first_set(&syms_after_next_sym, &mut first_set_of_syms_after_next_sym);
-                println!("{:?}", first_set_of_syms_after_next_sym);
+                //println!("{:?}", first_set_of_syms_after_next_sym);
                 
                 // Go through the possible productions
                 for production in &rule.productions {
@@ -189,8 +197,11 @@ impl GrammarGenerator {
         return self.get_closure(&moved);
     }
 
-    fn build_cannocial_collection(&self, goal: GrammarSet)
+    pub fn build_cannocial_collection(&mut self) -> BTreeSet<Box<GrammarSet>>
     {
+        // Get goal grammar set
+        let goal = self.get_goal_grammar_set();
+
         let cc0 = Box::new(GrammarSet{set: self.get_closure(&goal.set)});
 
         let mut stack: BTreeSet<Box<GrammarSet>> = BTreeSet::new();
@@ -198,8 +209,6 @@ impl GrammarGenerator {
 
         // Mark processed sets here
         let mut seen: BTreeSet<Box<GrammarSet>> = BTreeSet::new();
-
-        let mut transitions: Vec<(*const GrammarSet, Symbol, *const GrammarSet)> = Vec::new();
 
         while !stack.is_empty() {
             let set = stack.pop_first().unwrap();
@@ -220,7 +229,7 @@ impl GrammarGenerator {
             }
 
             for x in x_set {
-                let temp = Box::new(GrammarSet::new(self.get_goto(&set.set, x)));
+                let temp = Box::new(GrammarSet::new(self.get_goto(&set.set, x.clone())));
                 
                 // Destination set
                 let destination_set: *const GrammarSet;
@@ -242,17 +251,37 @@ impl GrammarGenerator {
                 }
 
                 // Record transition from cc_i to temp on x
-                transitions.push((, destination_set))
-
-                // IDEA: Make closure & goto return pointers
-                // easy to check for hashing, store all possible set
-                // OR use box pointers                
-
-                
+                self.add_transition(&*set as *const GrammarSet, x, destination_set);              
             }
 
             // Insert into seen (mark set)
             seen.insert(set);
+        }
+        return seen;
+    }
+
+    pub unsafe fn fill_table(&mut self, goal: GrammarSet)
+    {
+        // Build canonical collection
+        let cc = self.build_cannocial_collection();
+
+        let mut cc_count = 0;
+
+        for cc_i in cc {
+            // For each item I in cc_i
+            for i in cc_i.set {
+
+                if self.is_acceptable(&i) {
+                    self.action_table.insert((cc_count, i.lookup_sym), Action::Accept);
+                }
+                else if i.is_lookup_at_end() {
+                    // Add reduction action
+                    let reduce_action = Action::Reduce(i.lhs, i.production);
+                    self.action_table.insert((cc_count, i.lookup_sym), reduce_action);
+                }
+            }
+
+            cc_count += 1;
         }
     }
 
@@ -278,6 +307,39 @@ impl GrammarGenerator {
     fn get_lr_item_from_prod(&self, prod: *const Production, lookup_sym: Symbol) -> LRItem
     {
         LRItem { production: prod, placeholder_index: 0, lookup_sym }
+    }
+
+    fn add_transition(&mut self, source_set: *const GrammarSet, symbol: Symbol, dest_set: *const GrammarSet)
+    {
+        if let Some(trans) = self.transitions.get(&source_set) {
+            //trans.push((symbol, dest_set));
+        } else {
+            let new_vec = vec![(symbol, dest_set)];
+            self.transitions.insert(source_set, new_vec);
+        }
+    }
+
+    fn is_acceptable(&self, item: &LRItem) -> bool
+    {
+        return false;
+    }
+
+    fn get_goal_grammar_set(&self) -> GrammarSet {
+        let root_rule = self.rules.get(&Symbol { name: "root".to_string(), is_terminal: false });
+        if root_rule.is_none() {
+            // Throw an error
+            panic!();
+        }
+        let root_rule = root_rule.unwrap();
+
+        let mut grammar_set: BTreeSet<LRItem> = BTreeSet::new();
+        for prod in &root_rule.productions {
+            // Convert to LR Item
+            let lr_item = self.get_lr_item_from_prod(*prod, Symbol { name: "eof".to_string(), is_terminal: true });
+            grammar_set.insert(lr_item);
+        }
+
+        return GrammarSet {set: grammar_set};
     }
 
 }

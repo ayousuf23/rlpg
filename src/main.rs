@@ -70,7 +70,7 @@ fn main() {
 
     // Take the rules and build an NFA
     unsafe {
-        /*let nfa = NFA::build_from_rules(&rules);
+        let nfa = NFA::build_from_rules(&rules);
         if nfa.is_err()
         {
             println!("{}", nfa.err().unwrap());
@@ -100,7 +100,7 @@ fn main() {
         let table = table_builder.build_table_dfa(dfa);
 
         // Code gen
-        let mut code_gen = CodeGen {
+        /*let mut code_gen = CodeGen {
             table: table,
             curr_state_name: "curr".to_string(),
         };
@@ -113,8 +113,28 @@ fn main() {
         }*/
 
 
+        // Print grammar rules
+        //println!("{:?}", file_parser.grammar_rules);
+        for rule in &file_parser.grammar_rules {
+            println!("Name: {}", rule.name);
+            for prod in &rule.productions {
+                println!("{:?}", (**prod).prod);
+            }
+        }
+
+        // Create grammar generator
+        let mut grammar_gen = GrammarGenerator::new();
+        for rule in file_parser.grammar_rules {
+            let symbol = Symbol { name: rule.name.to_string(), is_terminal: false };
+            grammar_gen.add_rule(symbol, rule);
+        }
+
+        let result = grammar_gen.build_cannocial_collection();
+        println!("{:?}", result);
+
+
         // Create a plus symbol
-        let plus_symbol = Symbol {name: "+".to_string(), is_terminal: true};
+        /*let plus_symbol = Symbol {name: "+".to_string(), is_terminal: true};
         let nt1_symbol = Symbol {name: "NT1".to_string(), is_terminal: false};
         let nt2_symbol = Symbol {name: "NT2".to_string(), is_terminal: false};
 
@@ -163,6 +183,6 @@ fn main() {
         for x in &result {
             println!("Production: {:?}, lookup: {:?}", *(x.production), x.lookup_sym);
         }
-        println!("{:?}", result);
+        println!("{:?}", result);*/
     }
 }

@@ -168,7 +168,7 @@ impl NFABuilder {
         // Create a new start node
         let real_start = Rc::new(Mutex::new(NFANode::new_start()));
         let mut start = real_start.lock().unwrap();
-        println!("OR Node ID: {}", start.id);
+        //println!("OR Node ID: {}", start.id);
 
         // Create a new end node
         let end = Rc::new(Mutex::new(NFANode::new_end()));
@@ -198,7 +198,7 @@ impl NFABuilder {
 
     pub unsafe fn build_from_base(node: &Node) -> Result<NFA, NFABuilderError> {
         // Create a start node
-        println!("Data: {}", node.data);
+        //println!("Data: {}", node.data);
         let start = Rc::new(Mutex::new(NFANode::new_start()));
 
         // Create an end node
@@ -220,10 +220,10 @@ impl NFABuilder {
 
         let mut locked_start = nfa.start.as_ref().lock().unwrap();
         locked_start.transitions.push(transition);
-        println!("start: {}", locked_start.id);
+        //println!("start: {}", locked_start.id);
 
         let locked_end = nfa.end.as_ref().lock().unwrap();
-        println!("end: {}", locked_end.id);
+        //println!("end: {}", locked_end.id);
         drop(locked_end);
         drop(locked_start);
         // Return an NFA

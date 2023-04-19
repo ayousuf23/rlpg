@@ -5,7 +5,7 @@ use std::io::{BufReader, BufRead};
 
 use colored::Colorize;
 
-use crate::grammar::{Production, Symbol};
+use crate::grammar::{Production, Symbol, GrammarRule};
 
 #[derive(Debug, PartialEq)]
 pub enum FileParserErrorKind {
@@ -104,11 +104,6 @@ pub struct Rule {
     pub priority: i32,
 }
 
-struct GrammarRule {
-    pub name: String,
-    pub productions: Vec<Vec<String>>,
-}
-
 enum FileSection {
     Lexer,
     Grammar,
@@ -126,6 +121,7 @@ impl FileSection {
 pub struct FileParser {
     curr_section: FileSection,
     symbols: HashMap<String, bool>,
+    pub grammar_rules: Vec<GrammarRule>,
 }
 
 impl FileParser {
@@ -133,6 +129,7 @@ impl FileParser {
         return FileParser {
             curr_section: FileSection::Lexer,
             symbols: HashMap::new(),
+            grammar_rules: Vec::new(),
         };
     }
 
@@ -194,7 +191,7 @@ impl FileParser {
 
             if let RuleKind::Named(name) = &rule.kind {
                 // Return an error if a symbol with the same name already exists
-                if let Some(_) = self.symbols.insert(name.to_string(), false) {
+                if let Some(_) = self.symbols.insert(name.to_string(), true) {
                     return Err(FileParserError::new(FileParserErrorKind::DuplicateName, None));
                 }
             }
@@ -213,6 +210,7 @@ impl FileParser {
             if result.is_err() {
                 return Err(result.err().unwrap());
             }
+            self.grammar_rules = result.unwrap();
         }
 
         return Ok(rules);
@@ -312,7 +310,7 @@ impl FileParser {
     {
         // Parse each rule until the end
         let mut line = String::new();
-        let mut rules: Vec<crate::grammar::GrammarRule> = Vec::new();
+        let mut rules: Vec<GrammarRule> = Vec::new();
         let mut prev_rule: Option<GrammarRule> = None;
         let mut in_middle_of_rule = false;
 
@@ -347,15 +345,7 @@ impl FileParser {
                 } else {
                     in_middle_of_rule = false;
                     let t = prev_rule.take().unwrap();
-                    if !self.does_rule_contain_valid_identifiers(&t) {
-                        return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
-                    }
-                    if self.does_rule_contain_unknown(&t) {
-                        // Throw an error if unknown symbol is found
-                        return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
-                    }
-                    // Convert grammar rule to grammar rule
-                    rules.push(self.convert_grammar_rule_representation(t));
+                    rules.push(t);
                     prev_rule = None;
                 }
             }
@@ -419,21 +409,31 @@ impl FileParser {
         line_index += 1;
 
         // Read production
-        let mut productions: Vec<String> = Vec::new();
+        let mut production: Vec<Symbol> = Vec::new();
         while let Some(temp_name) = self.parse_identifier(&line, &mut line_index) {
-            productions.push(temp_name);
+            // Check if symbol is defined
+            if let Some(is_terminal) = self.symbols.get(&temp_name) {
+                production.push(Symbol { name: temp_name, is_terminal: *is_terminal });
+            }
+            else if FileParser::is_identifier_valid(&temp_name) {
+                return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
+            }
+            else {
+                // Throw an error for undefined symbol
+                return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
+            }
         }
 
-        if productions.len() == 0 {
+        if production.len() == 0 {
             return Err(FileParserError::new(FileParserErrorKind::InvalidGrammarRule, None));
         }
 
         let mut rule = GrammarRule { name, productions: Vec::new()};
-        rule.productions.push(productions);
+        rule.productions.push(Box::into_raw(Box::new(Production { prod: production })));
         return Ok(rule);
     }
 
-    fn parse_second_prod(&self, line: &Vec<char>) -> Result<Vec<String>, FileParserError>
+    fn parse_second_prod(&self, line: &Vec<char>) -> Result<*mut Production, FileParserError>
     {
         let mut line_index: usize = 0;
 
@@ -444,15 +444,25 @@ impl FileParser {
         line_index += 1;
 
         // Read production
-        let mut productions: Vec<String> = Vec::new();
+        let mut production: Vec<Symbol> = Vec::new();
         while let Some(temp_name) = self.parse_identifier(&line, &mut line_index) {
-            productions.push(temp_name);
+            // Check if symbol is defined
+            if let Some(is_terminal) = self.symbols.get(&temp_name) {
+                production.push(Symbol { name: temp_name, is_terminal: *is_terminal });
+            }
+            else if FileParser::is_identifier_valid(&temp_name) {
+                return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
+            }
+            else {
+                // Throw an error for undefined symbol
+                return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
+            }
         }
 
-        if productions.len() == 0 {
+        if production.len() == 0 {
             return Err(FileParserError::new(FileParserErrorKind::InvalidProduction, None));
         }
-        return Ok(productions);
+        return Ok(Box::into_raw(Box::new(Production {prod: production})));
     }
 
     fn parse_grammar_rule_end(&self, line: &Vec<char>) -> Result<bool, FileParserError>
@@ -501,9 +511,11 @@ impl FileParser {
     fn does_rule_contain_unknown(&self, rule: &GrammarRule) -> bool
     {
         for prod in &rule.productions {
-            for sym in prod {
-                if !self.symbols.contains_key(sym) {
-                    return true;
+            unsafe {
+                for sym in &(**prod).prod {
+                    if !self.symbols.contains_key(&sym.name) {
+                        return true;
+                    }
                 }
             }
         }
@@ -518,9 +530,11 @@ impl FileParser {
         } 
 
         for prod in &rule.productions {
-            for sym in prod {
-                if !FileParser::is_identifier_valid(sym) {
-                    return false;
+            unsafe {
+                for sym in &(**prod).prod {
+                    if !FileParser::is_identifier_valid(&sym.name) {
+                        return false;
+                    }
                 }
             }
         }
@@ -536,37 +550,5 @@ impl FileParser {
             }
         }
         return true;
-    }
-
-    fn convert_grammar_rule_representation(&self, rule: GrammarRule) -> crate::grammar::GrammarRule
-    {
-        let mut productions: Vec<*mut Production> = Vec::new();
-        // Create productions
-        for prod in rule.productions {
-            // Create vec of symbols
-            let mut symbols: Vec<Symbol> = Vec::new();
-            for sym in prod {
-                // Convert to a symbol
-                if let Some(is_terminal) = self.symbols.get(&sym) {
-                    symbols.push(Symbol { name: sym, is_terminal: *is_terminal });
-                }
-                else {
-                    // Throw an error
-                    todo!();
-                }
-            }
-
-            // Create a Production struct
-            let new_prod = Production {
-                prod: symbols
-            };
-            let new_prod_pointer = Box::into_raw(Box::new(new_prod));
-            productions.push(new_prod_pointer);
-        }
-
-        return crate::grammar::GrammarRule {
-            name: rule.name,
-            productions
-        };
     }
 }
