@@ -116,7 +116,7 @@ impl GrammarGenerator {
     }
 
     // Function to compute closure
-    pub fn get_closure(&self, set: &BTreeSet<LRItem>) -> BTreeSet<LRItem>
+    pub fn get_closure(&mut self, set: *mut GrammarSet) -> *mut GrammarSet
     {   
         // Keep track of the items that are done
         let mut done = BTreeSet::new();
@@ -124,13 +124,13 @@ impl GrammarGenerator {
         // Keep a stack of the items that need to be dealt with
         let mut stack: Vec<LRItem> = Vec::new();
 
-        // Add items from set to stack
-        for item in set {
-            stack.push(item.clone());
-        }
-
-        // Main loop
         unsafe {
+            // Add items from set to stack
+            for item in &(*set).set {
+                stack.push(item.clone());
+            }
+
+            // Main loop
             while let Some(lr_item) = stack.pop() {
                 if lr_item.placeholder_index >= (*lr_item.production).prod.len() {
                     continue;
@@ -151,7 +151,7 @@ impl GrammarGenerator {
                 }
 
                 //println!("hello");
-                println!("{:?}", next_sym);
+                //println!("{:?}", next_sym);
                 // Get the grammar rule associated with next_sym
                 let rule = match self.rules.get(&next_sym) {
                     Some(val) => val,
@@ -164,14 +164,16 @@ impl GrammarGenerator {
                 // Get the symbols after next_sym
                 let syms_after_next_sym = self.get_next_symbols(&lr_item, &lr_item.placeholder_index + 1);
                 //println!("{:?}", syms_after_next_sym);
+                
                 // Get the first set of the above symbols
                 let mut first_set_of_syms_after_next_sym = HashSet::new();
                 self.get_first_set(&syms_after_next_sym, &mut first_set_of_syms_after_next_sym);
-                //println!("{:?}", first_set_of_syms_after_next_sym);
+                println!("{:?}", first_set_of_syms_after_next_sym);
                 
                 // Go through the possible productions
                 for production in &rule.productions {
                     // Go through possible lookup symbols
+                    println!("{:?}", **production);
                     for lookup_sym in &first_set_of_syms_after_next_sym {
                         let lr_item = self.get_lr_item_from_prod(*production as *const Production, lookup_sym.clone());
                         // Insert into stack
@@ -180,41 +182,49 @@ impl GrammarGenerator {
                 }
             }
         }
-        return done;
+
+        let result_grammar_set = GrammarSet {set: done};
+        if let Some(already_set) = self.get_set_already_contained(&result_grammar_set) {
+            return already_set;
+        }
+        let pointer = Box::into_raw(Box::new(result_grammar_set));
+        self.sets.insert(pointer);
+        return pointer;
     }
 
-    fn get_goto(&self, set: &BTreeSet<LRItem>, symbol: Symbol) -> BTreeSet<LRItem>
+    unsafe fn get_goto(&mut self, set: *mut GrammarSet, symbol: Symbol) -> *mut GrammarSet
     {
-        let mut moved = BTreeSet::new();
-        for item in set {
-            unsafe {
-                if item.is_next_symbol(&symbol) {
-                    let moved_forward = LRItem {
-                        production: item.production,
-                        placeholder_index: item.placeholder_index + 1,
-                        lookup_sym: item.lookup_sym.clone()
-                    };
-                    moved.insert(moved_forward);
-                }
+        let mut moved = GrammarSet {set: BTreeSet::new()};
+        for item in &(*set).set {
+            if item.is_next_symbol(&symbol) {
+                let moved_forward = LRItem {
+                    production: item.production,
+                    placeholder_index: item.placeholder_index + 1,
+                    lookup_sym: item.lookup_sym.clone()
+                };
+                moved.set.insert(moved_forward);
             }
         }
 
         // Return closure of moved
-        return self.get_closure(&moved);
+        return self.get_closure(Box::into_raw(Box::new(moved)));
     }
 
-    pub fn build_cannocial_collection(&mut self) -> BTreeSet<Box<GrammarSet>>
+    pub unsafe fn build_cannocial_collection(&mut self) -> BTreeSet<*mut GrammarSet>
     {
+        let mut seen: BTreeSet<*mut GrammarSet> = BTreeSet::new();
         // Get goal grammar set
         let goal = self.get_goal_grammar_set();
 
-        let cc0 = Box::new(GrammarSet{set: self.get_closure(&goal.set)});
+        GrammarGenerator::print(&*goal);
 
-        let mut stack: BTreeSet<Box<GrammarSet>> = BTreeSet::new();
+        let cc0 = self.get_closure(goal);
+
+        /*let mut stack: BTreeSet<*mut GrammarSet> = BTreeSet::new();
         stack.insert(cc0);
 
         // Mark processed sets here
-        let mut seen: BTreeSet<Box<GrammarSet>> = BTreeSet::new();
+        
 
         while !stack.is_empty() {
             let set = stack.pop_first().unwrap();
@@ -226,7 +236,7 @@ impl GrammarGenerator {
 
             // For each x following . in an item in CC
             let mut x_set: BTreeSet<Symbol> = BTreeSet::new();
-            for subset in &set.set {
+            for subset in &(*set).set {
                 unsafe {
                     if let Some(next_sym) = subset.get_next_symbol() {
                         x_set.insert(next_sym);
@@ -235,7 +245,7 @@ impl GrammarGenerator {
             }
 
             for x in x_set {
-                let temp = Box::new(GrammarSet::new(self.get_goto(&set.set, x.clone())));
+                let temp = self.get_goto(set, x.clone());
                 
                 // Destination set
                 let destination_set: *const GrammarSet;
@@ -262,7 +272,7 @@ impl GrammarGenerator {
 
             // Insert into seen (mark set)
             seen.insert(set);
-        }
+        }*/
         return seen;
     }
 
@@ -275,15 +285,15 @@ impl GrammarGenerator {
 
         for cc_i in cc {
             // For each item I in cc_i
-            for i in cc_i.set {
+            for i in &(*cc_i).set {
 
                 if self.is_acceptable(&i) {
-                    self.action_table.insert((cc_count, i.lookup_sym), Action::Accept);
+                    //self.action_table.insert((cc_count, i.lookup_sym), Action::Accept);
                 }
                 else if i.is_lookup_at_end() {
                     // Add reduction action
                     let reduce_action = Action::Reduce((*i.production).lhs.clone(), i.production);
-                    self.action_table.insert((cc_count, i.lookup_sym), reduce_action);
+                    //self.action_table.insert((cc_count, i.lookup_sym), reduce_action);
                 }
             }
 
@@ -330,7 +340,7 @@ impl GrammarGenerator {
         return false;
     }
 
-    fn get_goal_grammar_set(&self) -> GrammarSet {
+    fn get_goal_grammar_set(&mut self) -> *mut GrammarSet {
         let root_rule = self.rules.get(&Symbol { name: "root".to_string(), is_terminal: false });
         if root_rule.is_none() {
             // Throw an error
@@ -345,7 +355,37 @@ impl GrammarGenerator {
             grammar_set.insert(lr_item);
         }
 
-        return GrammarSet {set: grammar_set};
+        return self.insert_set_or_get_already_contained(GrammarSet { set: grammar_set });
+    }
+
+    fn insert_set_or_get_already_contained(&mut self, set: GrammarSet) -> *mut GrammarSet
+    {
+        if let Some(already_contained) = self.get_set_already_contained(&set)
+        {
+            return already_contained;
+        }
+        let result = Box::into_raw(Box::new(set));
+        self.sets.insert(result);
+        return result;
+    }
+
+    fn get_set_already_contained(&self, set: &GrammarSet) -> Option<*mut GrammarSet>
+    {
+        for contained_set in &self.sets {
+            unsafe {
+                if **contained_set == *set {
+                    return Some(*contained_set);
+                }
+            }
+        }
+        return None;
+    }
+
+    unsafe fn print(grammar: &GrammarSet)
+    {
+        for item in &grammar.set {
+            println!("{:?}", *item.production);
+        }
     }
 
 }
