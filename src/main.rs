@@ -130,7 +130,16 @@ fn main() {
         }
 
         let result = grammar_gen.build_cannocial_collection();
-        println!("{:?}", result);
+        let mut i = 0;
+        for item in &result {
+            println!("Start");
+            for prod in &(**item).set {
+                println!("{}", prod);
+            }
+            //println!("{:?}", **item);
+            println!("End");
+        }
+        //println!("{:?}", result);
 
 
         // Create a plus symbol

@@ -1,4 +1,6 @@
-use std::collections::{HashMap, HashSet, BTreeSet, BTreeMap};
+use std::{collections::{HashMap, HashSet, BTreeSet, BTreeMap}, fmt::Display};
+
+use clap::builder::Str;
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
 pub struct Symbol {
@@ -23,6 +25,31 @@ pub struct LRItem {
     pub production: *const Production,
     pub placeholder_index: usize,
     pub lookup_sym: Symbol,
+}
+
+impl Display for LRItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut result = String::new();
+        unsafe {
+            result = format!("{} -> ", (*self.production).lhs.name);
+
+            for i in 0..(*self.production).prod.len() {
+                if i == self.placeholder_index {
+                    result.push_str(".");
+                }
+
+                result.push_str(&(*self.production).prod[i].name);
+
+                if i != (*self.production).prod.len() - 1 {
+                    result.push(' ');
+                }
+            }
+
+            let end = format!(", {}", self.lookup_sym.name);
+            result.push_str(&end)
+        }
+        return write!(f, "{}", result);
+    }
 }
 
 #[derive(Eq, Hash, PartialEq, Debug, PartialOrd, Ord)]
@@ -93,7 +120,42 @@ impl GrammarGenerator {
     // Function to compute first set
     pub fn get_first_set(&self, string: &Vec<Symbol>, set: &mut HashSet<Symbol>)
     {
-        for token in string {
+        // Clone string to create the stack
+        let mut stack: Vec<Symbol> = string.clone();
+        let mut seen: HashSet<Symbol> = HashSet::new();
+
+        //let mut set: HashSet<Symbol> = HashSet::new();
+
+        while !stack.is_empty() {
+            let front = stack.remove(0);
+
+            if !seen.insert(front.clone()) {
+                continue;
+            }
+
+            if front.is_terminal {
+                set.insert(front.clone());
+            }
+            else {
+                if let Some(rule) = self.rules.get(&front) {
+                    // Run get first set on the productions
+                    for prod in &rule.productions {
+                        unsafe {
+                            for sym in &(**prod).prod {
+                                stack.push(sym.clone());
+                            }
+                        }
+                    }
+                }
+                else {
+                    // Throw an error here
+                    todo!();
+                }
+            }
+
+        }
+
+        /*for token in string {
             if token.is_terminal {
                 set.insert(token.clone());
             }
@@ -112,7 +174,7 @@ impl GrammarGenerator {
                     todo!();
                 }
             }
-        }
+        }*/
     }
 
     // Function to compute closure
@@ -132,23 +194,28 @@ impl GrammarGenerator {
 
             // Main loop
             while let Some(lr_item) = stack.pop() {
+                println!("begin loop");
                 if lr_item.placeholder_index >= (*lr_item.production).prod.len() {
                     continue;
                 }
+                println!("begin2 loop");
 
                 // Add this lr_item to the done set
                 if !done.insert(lr_item.clone()) {
                     continue;
                 }
+                println!("here3");
 
                 // Get the next symbol
                 let next_sym = (*lr_item.production).prod[lr_item.placeholder_index].clone();
                 //println!("{:?}", next_sym);
+                println!("here4");
 
                 // Go to the next lr_item if the next symbol is a terminal
                 if next_sym.is_terminal {
                     continue;
                 }
+                println!("here5");
 
                 //println!("hello");
                 //println!("{:?}", next_sym);
@@ -160,15 +227,18 @@ impl GrammarGenerator {
                         todo!();
                     }
                 };
+                println!("here6");
 
                 // Get the symbols after next_sym
                 let syms_after_next_sym = self.get_next_symbols(&lr_item, &lr_item.placeholder_index + 1);
-                //println!("{:?}", syms_after_next_sym);
+                println!("{:?}", syms_after_next_sym);
+                println!("here7");
                 
                 // Get the first set of the above symbols
                 let mut first_set_of_syms_after_next_sym = HashSet::new();
                 self.get_first_set(&syms_after_next_sym, &mut first_set_of_syms_after_next_sym);
                 println!("{:?}", first_set_of_syms_after_next_sym);
+                println!("here8");
                 
                 // Go through the possible productions
                 for production in &rule.productions {
@@ -180,8 +250,12 @@ impl GrammarGenerator {
                         stack.push(lr_item);
                     }
                 }
+
+                println!("end loop");
             }
         }
+
+        println!("end while loop");
 
         let result_grammar_set = GrammarSet {set: done};
         if let Some(already_set) = self.get_set_already_contained(&result_grammar_set) {
@@ -220,7 +294,7 @@ impl GrammarGenerator {
 
         let cc0 = self.get_closure(goal);
 
-        /*let mut stack: BTreeSet<*mut GrammarSet> = BTreeSet::new();
+        let mut stack: BTreeSet<*mut GrammarSet> = BTreeSet::new();
         stack.insert(cc0);
 
         // Mark processed sets here
@@ -272,7 +346,7 @@ impl GrammarGenerator {
 
             // Insert into seen (mark set)
             seen.insert(set);
-        }*/
+        }
         return seen;
     }
 

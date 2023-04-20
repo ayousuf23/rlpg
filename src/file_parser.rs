@@ -340,8 +340,12 @@ impl FileParser {
                     }
 
                     if let Some(rule) = &mut prev_rule {
-                        //let another_prod = another_prod.unwrap();
-                        rule.productions.push(another_prod.unwrap());
+                        let another_prod = another_prod.unwrap();
+                        unsafe {
+                            (*another_prod).lhs = Symbol {name: rule.name.to_string(), is_terminal: false};
+                        }
+                        
+                        rule.productions.push(another_prod);
                     }
                 } else {
                     in_middle_of_rule = false;
