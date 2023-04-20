@@ -340,7 +340,7 @@ impl FileParser {
                     }
 
                     if let Some(rule) = &mut prev_rule {
-                        let another_prod = another_prod.unwrap();
+                        //let another_prod = another_prod.unwrap();
                         rule.productions.push(another_prod.unwrap());
                     }
                 } else {
@@ -359,10 +359,6 @@ impl FileParser {
                     } 
                 } else {
                     let rule = first_prod.unwrap();
-                    if let Some(_) = self.symbols.insert(rule.name.to_string(), false) {
-                        // Throw a duplicate name error
-                        return Err(FileParserError::new(FileParserErrorKind::DuplicateGrammarRuleName, None));
-                    }
                     prev_rule = Some(rule);
                     in_middle_of_rule = true;
                 }
@@ -381,7 +377,7 @@ impl FileParser {
         return Ok(rules);
     }
 
-    fn parse_first_prod(&self, line: &Vec<char>) -> Result<GrammarRule, FileParserError>
+    fn parse_first_prod(&mut self, line: &Vec<char>) -> Result<GrammarRule, FileParserError>
     {
         let name: String;
         let mut line_index: usize = 0;
@@ -409,6 +405,12 @@ impl FileParser {
         }
         line_index += 1;
 
+        // Insert into symbols
+        if let Some(_) = self.symbols.insert(name.to_string(), false) {
+            // Throw a duplicate name error
+            return Err(FileParserError::new(FileParserErrorKind::DuplicateGrammarRuleName, None));
+        }
+
         // Read production
         let mut production: Vec<Symbol> = Vec::new();
         while let Some(temp_name) = self.parse_identifier(&line, &mut line_index) {
@@ -416,7 +418,7 @@ impl FileParser {
             if let Some(is_terminal) = self.symbols.get(&temp_name) {
                 production.push(Symbol { name: temp_name, is_terminal: *is_terminal });
             }
-            else if FileParser::is_identifier_valid(&temp_name) {
+            else if !FileParser::is_identifier_valid(&temp_name) {
                 return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
             }
             else {
@@ -451,7 +453,7 @@ impl FileParser {
             if let Some(is_terminal) = self.symbols.get(&temp_name) {
                 production.push(Symbol { name: temp_name, is_terminal: *is_terminal });
             }
-            else if FileParser::is_identifier_valid(&temp_name) {
+            else if !FileParser::is_identifier_valid(&temp_name) {
                 return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
             }
             else {

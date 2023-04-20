@@ -69,14 +69,20 @@ impl LRItem {
 pub struct GrammarGenerator {
     rules: HashMap<Symbol, GrammarRule>,
     transitions: HashMap<*const GrammarSet, Vec<(Symbol, *const GrammarSet)>>,
-    pub action_table: BTreeMap<(i32, Symbol), Action>
+    pub action_table: BTreeMap<(i32, Symbol), Action>,
+    pub sets: HashSet<*mut GrammarSet>,
 }
 
 impl GrammarGenerator {
 
     pub fn new() -> GrammarGenerator
     {
-        GrammarGenerator { rules: HashMap::new(), transitions: HashMap::new(), action_table: BTreeMap::new() }
+        GrammarGenerator { 
+            rules: HashMap::new(), 
+            transitions: HashMap::new(), 
+            action_table: BTreeMap::new(),
+            sets: HashSet::new(),
+        }
     }
 
     pub fn add_rule(&mut self, symbol: Symbol, rule: GrammarRule)

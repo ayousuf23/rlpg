@@ -1,8 +1,8 @@
 SECTION LEXER
 number [0-9]+
 word [a-zA-Z]+
-left (
-right )
+left \(
+right \)
 SECTION GRAMMAR
 
 pair: left pair right
