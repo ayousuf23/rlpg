@@ -39,6 +39,7 @@ use dfa_builder::DFANode;
 use grammar::{Symbol, Production, GrammarRule, GrammarGenerator};
 
 mod grammar;
+mod grammar2;
 
 mod table_dfa_builder;
 
@@ -123,13 +124,24 @@ fn main() {
         }
 
         // Create grammar generator
-        let mut grammar_gen = GrammarGenerator::new();
+        let mut grammar_gen = grammar2::GrammarGenerator::new();
         for rule in file_parser.grammar_rules {
-            let symbol = Symbol { name: rule.name.to_string(), is_terminal: false };
+            let symbol = grammar2::Symbol { name: rule.name.to_string(), is_terminal: false };
             grammar_gen.add_rule(symbol, rule);
         }
 
-        let result = grammar_gen.build_cannocial_collection();
+        // goal
+        let goal = grammar_gen.get_goal_grammar_set();
+        let c = grammar_gen.get_closure(goal);
+
+        println!("Start");
+        for prod in &(c).set {
+            println!("{}", **prod);
+        }
+        //println!("{:?}", **item);
+        println!("End");
+
+        /*let result = grammar_gen.build_cannocial_collection();
         let mut i = 0;
         for item in &result {
             println!("Start");
@@ -138,7 +150,7 @@ fn main() {
             }
             //println!("{:?}", **item);
             println!("End");
-        }
+        }*/
         //println!("{:?}", result);
 
 

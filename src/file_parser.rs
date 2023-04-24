@@ -5,7 +5,7 @@ use std::io::{BufReader, BufRead};
 
 use colored::Colorize;
 
-use crate::grammar::{Production, Symbol, GrammarRule};
+use crate::grammar2::{Production, Symbol, GrammarRule};
 
 #[derive(Debug, PartialEq)]
 pub enum FileParserErrorKind {
@@ -306,7 +306,7 @@ impl FileParser {
         return parts;
     }
 
-    fn parse_grammar_section(&mut self, reader: &mut BufReader<File>) -> Result<Vec<crate::grammar::GrammarRule>, FileParserError>
+    fn parse_grammar_section(&mut self, reader: &mut BufReader<File>) -> Result<Vec<GrammarRule>, FileParserError>
     {
         // Parse each rule until the end
         let mut line = String::new();
@@ -342,7 +342,7 @@ impl FileParser {
                     if let Some(rule) = &mut prev_rule {
                         let another_prod = another_prod.unwrap();
                         unsafe {
-                            (*another_prod).lhs = Symbol {name: rule.name.to_string(), is_terminal: false};
+                            //(*another_prod).lhs = Symbol {name: rule.name.to_string(), is_terminal: false};
                         }
                         
                         rule.productions.push(another_prod);
@@ -436,7 +436,7 @@ impl FileParser {
         }
 
         let mut rule = GrammarRule { name, productions: Vec::new()};
-        rule.productions.push(Box::into_raw(Box::new(Production {lhs: Symbol { name: rule.name.to_string(), is_terminal: false }, prod: production })));
+        rule.productions.push(Box::into_raw(Box::new(Production {prod: production })));
         return Ok(rule);
     }
 
@@ -469,7 +469,7 @@ impl FileParser {
         if production.len() == 0 {
             return Err(FileParserError::new(FileParserErrorKind::InvalidProduction, None));
         }
-        return Ok(Box::into_raw(Box::new(Production {lhs: Symbol {name: String::new(), is_terminal: false}, prod: production})));
+        return Ok(Box::into_raw(Box::new(Production {prod: production})));
     }
 
     fn parse_grammar_rule_end(&self, line: &Vec<char>) -> Result<bool, FileParserError>

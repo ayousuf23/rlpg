@@ -1,7 +1,5 @@
 use std::{collections::{HashMap, HashSet, BTreeSet, BTreeMap}, fmt::Display};
 
-use clap::builder::Str;
-
 #[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
 pub struct Symbol {
     pub name: String,
@@ -121,7 +119,8 @@ impl GrammarGenerator {
     pub fn get_first_set(&self, string: &Vec<Symbol>, set: &mut HashSet<Symbol>)
     {
         // Clone string to create the stack
-        let mut stack: Vec<Symbol> = string.clone();
+        let mut stack: Vec<Symbol> = Vec::new();
+        stack.push(string[0].clone());
         let mut seen: HashSet<Symbol> = HashSet::new();
 
         //let mut set: HashSet<Symbol> = HashSet::new();
@@ -143,6 +142,7 @@ impl GrammarGenerator {
                         unsafe {
                             for sym in &(**prod).prod {
                                 stack.push(sym.clone());
+                                break;
                             }
                         }
                     }
@@ -154,27 +154,6 @@ impl GrammarGenerator {
             }
 
         }
-
-        /*for token in string {
-            if token.is_terminal {
-                set.insert(token.clone());
-            }
-            else {
-                // Get production for symbol
-                if let Some(rule) = self.rules.get(token) {
-                    // Run get first set on the productions
-                    for prod in &rule.productions {
-                        unsafe {
-                            self.get_first_set(&(**prod).prod, set);
-                        }
-                    }
-                }
-                else {
-                    // Throw an error here
-                    todo!();
-                }
-            }
-        }*/
     }
 
     // Function to compute closure
@@ -414,7 +393,7 @@ impl GrammarGenerator {
         return false;
     }
 
-    fn get_goal_grammar_set(&mut self) -> *mut GrammarSet {
+    pub fn get_goal_grammar_set(&mut self) -> *mut GrammarSet {
         let root_rule = self.rules.get(&Symbol { name: "root".to_string(), is_terminal: false });
         if root_rule.is_none() {
             // Throw an error
