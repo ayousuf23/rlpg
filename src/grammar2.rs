@@ -56,6 +56,19 @@ impl LRItem {
     unsafe fn is_lookup_at_end(&self) -> bool {
         return self.placeholder_index >= (*self.production).prod.len();
     }
+
+    unsafe fn get_lr_item_after_moving_lookup_index(&self) -> Option<LRItem> {
+        if self.is_lookup_at_end() {
+            return None;
+        }
+        let item = LRItem { 
+            production: self.production, 
+            placeholder_index: self.placeholder_index + 1, 
+            lookup_sym: self.lookup_sym.clone(), 
+            lhs: self.lhs.clone() 
+        };
+        return Some(item);
+    }
 }
 
 impl Display for LRItem {
@@ -92,6 +105,12 @@ impl GrammarSet {
     pub fn new(set: BTreeSet<*mut LRItem>) -> GrammarSet {
         GrammarSet { set: set }
     }
+}
+
+#[derive(Debug)]
+pub struct GrammarSetInfo {
+    pub id: usize,
+    pub transitions: HashMap<Symbol, usize>,
 }
 
 pub struct GrammarGenerator {
@@ -219,6 +238,76 @@ impl GrammarGenerator {
         }
 
         return result;
+    }
+
+    pub fn get_goto(&mut self, set: &GrammarSet, symbol: &Symbol) -> GrammarSet
+    {
+        let mut result = GrammarSet::new(BTreeSet::new());
+        for item in &set.set {
+            unsafe {
+                if (**item).is_next_symbol(symbol) {
+                    let moved_item = (**item).get_lr_item_after_moving_lookup_index().unwrap();
+                    let moved_item = self.add_lr_item_or_get_existing(moved_item);
+                    result.set.insert(moved_item);
+                }
+            }
+        }
+        return self.get_closure(result);
+    }
+
+    pub fn build_cannocial_collection(&mut self) -> HashMap<GrammarSet, GrammarSetInfo>
+    {
+        let mut sets: HashMap<GrammarSet, GrammarSetInfo> = HashMap::new();
+        let cc_0 = self.get_goal_grammar_set();
+        let cc_0 = self.get_closure(cc_0);
+        sets.insert(cc_0, GrammarSetInfo { id: 0, transitions: HashMap::new() });
+
+        let mut stack: Vec<GrammarSet> = Vec::new();
+        
+        stack.push(cc_0);
+
+        // Used to give each set an ID
+        let mut counter = 1;
+
+        while let Some(front) = stack.pop() {
+            let curr_set_id = counter;
+            let curr_info = sets.get(&front).unwrap();
+
+            let syms_after_placeholder = self.get_symbols_after_placeholder(&front);
+            for sym in syms_after_placeholder {
+                let temp = self.get_goto(&front, &sym);
+                // Check if temp is in sets
+                if let Some(info) = sets.get(&temp) {
+                    // Record transition
+                    curr_info.transitions.insert(sym.clone(), info.id);
+                }
+                else {
+                    // Record transition
+                    let temp_info = GrammarSetInfo {id: counter, transitions: HashMap::new()};
+                    curr_info.transitions.insert(sym.clone(), counter);
+
+                    // Insert temp into sets and stack
+                    sets.insert(temp, temp_info);
+                    counter += 1;
+                    stack.push(temp);
+                }
+            }
+        }
+
+        return sets;
+    }
+
+    fn get_symbols_after_placeholder(&mut self, set: &GrammarSet) -> HashSet<Symbol>
+    {
+        let mut symbols = HashSet::new();
+        for lr_item in &set.set {
+            unsafe {
+                if let Some(next) = (**lr_item).get_next_symbol() {
+                    symbols.insert(next);
+                }
+            }
+        }
+        return symbols;
     }
 
     fn add_lr_item_or_get_existing(&mut self, item: LRItem) -> *mut LRItem

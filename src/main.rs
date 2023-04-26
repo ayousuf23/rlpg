@@ -134,12 +134,18 @@ fn main() {
         let goal = grammar_gen.get_goal_grammar_set();
         let c = grammar_gen.get_closure(goal);
 
+        // do goto
+        let goto = grammar_gen.get_goto(&c, &grammar2::Symbol{is_terminal: true, name: "left".to_string()});
+
         println!("Start");
-        for prod in &(c).set {
+        for prod in &(goto).set {
             println!("{}", **prod);
         }
         //println!("{:?}", **item);
         println!("End");
+
+        let cc = grammar_gen.build_cannocial_collection();
+        println!("{}", cc.len());
 
         /*let result = grammar_gen.build_cannocial_collection();
         let mut i = 0;
