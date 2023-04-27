@@ -89,6 +89,10 @@ impl Display for LRItem {
                 }
             }
 
+            if self.placeholder_index == (*self.production).prod.len() {
+                result.push_str(".");
+            }
+
             let end = format!(", {}", self.lookup_sym.name);
             result.push_str(&end)
         }
@@ -96,7 +100,7 @@ impl Display for LRItem {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, PartialOrd, Ord)]
+#[derive(Eq, Hash, PartialEq, Debug, PartialOrd, Ord, Clone)]
 pub struct GrammarSet {
     pub set: BTreeSet<*mut LRItem>,
 }
@@ -107,16 +111,27 @@ impl GrammarSet {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GrammarSetInfo {
     pub id: usize,
     pub transitions: HashMap<Symbol, usize>,
+}
+
+#[derive(Debug)]
+pub enum Action {
+    Shift(usize),
+    Reduce(*const LRItem),
+    Accept
 }
 
 pub struct GrammarGenerator {
     rules: HashMap<Symbol, GrammarRule>,
     transitions: HashMap<*const GrammarSet, Vec<(Symbol, *const GrammarSet)>>,
     pub all_lr_items: HashMap<LRItem, *mut LRItem>,
+    pub action_table: HashMap<(usize, Symbol), Action>,
+    pub goto_table: HashMap<(usize, Symbol), usize>,
+    non_terminals: HashSet<Symbol>,
+    next_word_index: usize,
 }
 
 impl GrammarGenerator {
@@ -127,11 +142,16 @@ impl GrammarGenerator {
             rules: HashMap::new(), 
             transitions: HashMap::new(), 
             all_lr_items: HashMap::new(),
+            action_table: HashMap::new(),
+            goto_table: HashMap::new(),
+            non_terminals: HashSet::new(),
+            next_word_index: 0,
         }
     }
 
     pub fn add_rule(&mut self, symbol: Symbol, rule: GrammarRule)
     {
+        self.non_terminals.insert(symbol.clone());
         self.rules.insert(symbol, rule);
     }
 
@@ -260,7 +280,7 @@ impl GrammarGenerator {
         let mut sets: HashMap<GrammarSet, GrammarSetInfo> = HashMap::new();
         let cc_0 = self.get_goal_grammar_set();
         let cc_0 = self.get_closure(cc_0);
-        sets.insert(cc_0, GrammarSetInfo { id: 0, transitions: HashMap::new() });
+        sets.insert(cc_0.clone(), GrammarSetInfo { id: 0, transitions: HashMap::new() });
 
         let mut stack: Vec<GrammarSet> = Vec::new();
         
@@ -270,8 +290,7 @@ impl GrammarGenerator {
         let mut counter = 1;
 
         while let Some(front) = stack.pop() {
-            let curr_set_id = counter;
-            let curr_info = sets.get(&front).unwrap();
+            let mut curr_info = sets.get_mut(&front).unwrap().clone();
 
             let syms_after_placeholder = self.get_symbols_after_placeholder(&front);
             for sym in syms_after_placeholder {
@@ -287,14 +306,46 @@ impl GrammarGenerator {
                     curr_info.transitions.insert(sym.clone(), counter);
 
                     // Insert temp into sets and stack
-                    sets.insert(temp, temp_info);
+                    sets.insert(temp.clone(), temp_info);
                     counter += 1;
                     stack.push(temp);
                 }
             }
+
+            sets.insert(front, curr_info);
         }
 
         return sets;
+    }
+
+    pub unsafe fn build_table(&mut self, cc: &HashMap<GrammarSet, GrammarSetInfo>)
+    {
+        for (key, value) in cc {
+
+            // For each item in the set
+            for item in &key.set {
+                
+                // Check for shift action
+                if let Some(next_sym) = (**item).get_next_symbol() {
+                    if let Some(reduce_dest) = value.transitions.get(&next_sym) {
+                        self.action_table.insert((value.id, next_sym.clone()), Action::Shift(*reduce_dest));
+                    }
+                } 
+                else if (**item).lhs.name == "root" && (**item).lookup_sym.name == "eof" {
+                    self.action_table.insert((value.id, (**item).lookup_sym.clone()), Action::Accept);
+                }
+                else {
+                    self.action_table.insert((value.id, (**item).lookup_sym.clone()), Action::Reduce(*item));
+                }
+            }
+
+            // For each non-terminal
+            for nt in &self.non_terminals {
+                if let Some(dest) = value.transitions.get(nt) {
+                    self.goto_table.insert((value.id, nt.clone()), *dest);
+                }
+            }
+        }
     }
 
     fn get_symbols_after_placeholder(&mut self, set: &GrammarSet) -> HashSet<Symbol>
@@ -352,4 +403,76 @@ impl GrammarGenerator {
 
         return grammar_set;
     }
+    
+
+    pub unsafe fn parse(&mut self) -> bool {
+        let mut stack: Vec<StackSymbol> = Vec::new();
+        stack.push(StackSymbol::DollarSign);
+        stack.push(StackSymbol::State(0));
+
+        let mut word: Symbol = self.get_next_word();
+
+        while true {
+            let state = match &stack[stack.len() - 1] {
+                StackSymbol::State(value) => *value,
+                StackSymbol::Symbol(_) => panic!(),
+                StackSymbol::DollarSign => panic!(),
+            };
+            println!("state {}", state);
+            let key = (state, word.clone());
+            println!("key {:?}", key);
+            if let Some(action) = self.action_table.get(&key).clone() {
+                println!("{:?}", action);
+                match action {
+                    Action::Reduce(lr_item) => {
+                        let num = 2 * (*(**lr_item).production).prod.len();
+                        for i in 0..num {
+                            stack.pop();
+                        }
+                        let state = match &stack[stack.len() - 1] {
+                            StackSymbol::State(value) => *value,
+                            StackSymbol::Symbol(_) => panic!(),
+                            StackSymbol::DollarSign => panic!(),
+                        };
+                        let A = (**lr_item).lhs.clone();
+                        stack.push(StackSymbol::Symbol(A.clone()));
+                        let goto = match self.goto_table.get(&(state, A)) {
+                            Some(value) => value,
+                            None => panic!(),
+                        };
+                        stack.push(StackSymbol::State(*goto));
+                        
+                    },
+                    Action::Shift(dest) => {
+                        stack.push(StackSymbol::Symbol(word));
+                        stack.push(StackSymbol::State(*dest));
+                        word = self.get_next_word();
+                    },
+                    Action::Accept => break,
+                }
+
+            }
+            else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    fn get_next_word(&mut self) -> Symbol {
+        self.next_word_index += 1;
+        if self.next_word_index == 1 {
+            return Symbol {name: "left".to_string(), is_terminal: true};
+        }
+        if self.next_word_index == 2 {
+            return Symbol {name: "right".to_string(), is_terminal: true};
+        }
+        return Symbol {name: "eof".to_string(), is_terminal: true};
+    }
+}
+
+enum StackSymbol {
+    Symbol(Symbol),
+    State(usize),
+    DollarSign,
 }
