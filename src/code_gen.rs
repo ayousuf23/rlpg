@@ -37,6 +37,10 @@ impl CodeGen {
         text += "\n";
         text += &self.create_transition_function();
         text += "\n";
+        text += &self.create_get_action_table_function();
+        text += "\n";
+        text += &self.create_get_goto_table_function();
+        text += "\n";
         text += &self.create_parse_function();
         text += "\n";
         text += &self.create_grammar_parse_function();
@@ -66,11 +70,11 @@ impl CodeGen {
 
         ".to_string();
 
-        main += &format!("let action_table = {}", self.create_action_table());
+        //main += &format!("let action_table = {}", self.create_action_table());
 
-        main += &format!("let goto_table = {}", self.create_goto_table());
+        //main += &format!("let goto_table = {}", self.create_goto_table());
 
-        main += "let grammar_result = parse(&result, action_table, goto_table);";
+        main += "let grammar_result = parse(&result);";
         main += "println!(\"Result: {}\", grammar_result.is_err())";
 
         main += "}}";
@@ -220,7 +224,10 @@ impl CodeGen {
     fn create_grammar_parse_function(&self) -> String
     {
         stringify!(
-            pub fn parse(symbols: &Vec<Token>, action_table: HashMap<(usize, Symbol), Action>, goto_table: HashMap<(usize, Symbol), usize>) -> Result<TreeNode, ErrorKind> {
+            pub fn parse(symbols: &Vec<Token>, goto_table: HashMap<(usize, Symbol), usize>) -> Result<TreeNode, ErrorKind> {
+                
+                let action_table = get_action_table();
+
                 let mut stack: Vec<StackSymbol> = Vec::new();
                 stack.push(StackSymbol::DollarSign);
                 stack.push(StackSymbol::State(0));
@@ -288,6 +295,24 @@ impl CodeGen {
                 return Ok(root_node);
             }
         ).to_string()
+    }
+
+    fn create_get_action_table_function(&self) -> String
+    {
+        let mut func = "fn get_action_table() -> HashMap<(usize, Symbol), Action> {\n".to_string();
+        func += "return ";
+        func += &self.create_action_table();
+        func += "}\n";
+        return func;
+    }
+
+    fn create_get_goto_table_function(&self) -> String
+    {
+        let mut func = "fn get_goto_table() -> HashMap<(usize, Symbol), usize> {\n".to_string();
+        func += "return ";
+        func += &self.create_goto_table();
+        func += "}\n";
+        return func;
     }
 
     fn create_action_table(&self) -> String
