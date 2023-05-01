@@ -1,12 +1,10 @@
-use std::{sync::Mutex, rc::Rc};
-
-use crate::{dfa_builder::DFANode, nfa::TransitionKind};
+use crate::{dfa_builder::DFANode, nfa::TransitionKind, grammar2::Symbol};
 
 pub struct DFASimulator;
 
 impl DFASimulator {
 
-    pub unsafe fn simulate_dfa_and_get_tokens(node: *mut DFANode, string: &str) -> (bool, Vec<String>)
+    pub unsafe fn simulate_dfa_and_get_tokens(node: *mut DFANode, string: &str) -> (bool, Vec<Symbol>)
     {
         let seq: Vec<char> = string.chars().collect();
         let mut index = 0;
@@ -17,7 +15,7 @@ impl DFASimulator {
 
         while seq.len() > 0 && index <= seq.len() - 1
         {
-            println!("DFA Index: {}", index);
+            //println!("DFA Index: {}", index);
             // Get transition for any char or next char
             if let Some(dest) = (*next).raw_transitions.get(&TransitionKind::Character(seq[index]))
             {
@@ -32,7 +30,7 @@ impl DFASimulator {
                 if let crate::dfa_builder::DFANodeKind::Accept(token) = &(*next).kind 
                 {
                     if !token.is_empty() {
-                        tokens.push(token.to_string());
+                        tokens.push(Symbol{name: token.to_string(), is_terminal: true});
                     }
                     next = node;
                     // Add CONTINUE here
@@ -45,14 +43,14 @@ impl DFASimulator {
             index += 1;
         }
 
-        println!("{:?}", (*next).states);
-        println!("{:?}", (*next).kind);
+        //println!("{:?}", (*next).states);
+        //println!("{:?}", (*next).kind);
 
         // Get last node
         if let crate::dfa_builder::DFANodeKind::Accept(token) = &(*next).kind 
         {
             if !token.is_empty() {
-                tokens.push(token.to_string());
+                tokens.push(Symbol {name: token.to_string(), is_terminal: true});
             }
             return (true, tokens);
         } else {

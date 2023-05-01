@@ -1,4 +1,4 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufReader, BufRead};
@@ -557,5 +557,16 @@ impl FileParser {
             }
         }
         return true;
+    }
+
+    pub fn get_terminals(&self) -> HashSet<Symbol>
+    {
+        let mut set = HashSet::new();
+        for (item, is_terminal) in &self.symbols {
+            if *is_terminal {
+                set.insert(Symbol {name: item.to_string(), is_terminal: true});
+            }
+        }
+        return set;
     }
 }

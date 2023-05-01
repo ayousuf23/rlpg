@@ -6,6 +6,13 @@ pub struct Symbol {
     pub is_terminal: bool,
 }
 
+impl Symbol {
+   pub fn eof_symbol() -> Symbol
+   {
+        Symbol { name: "eof".to_string(), is_terminal: true }
+   }
+}
+
 #[derive(Debug, Clone)]
 pub struct GrammarRule {
     pub name: String,
@@ -120,7 +127,8 @@ pub struct GrammarSetInfo {
 #[derive(Debug)]
 pub enum Action {
     Shift(usize),
-    Reduce(*const LRItem),
+    // LHS and length of production
+    Reduce(Symbol, usize),
     Accept
 }
 
@@ -130,13 +138,14 @@ pub struct GrammarGenerator {
     pub all_lr_items: HashMap<LRItem, *mut LRItem>,
     pub action_table: HashMap<(usize, Symbol), Action>,
     pub goto_table: HashMap<(usize, Symbol), usize>,
-    non_terminals: HashSet<Symbol>,
+    pub non_terminals: HashSet<Symbol>,
+    pub terminals: HashSet<Symbol>,
     next_word_index: usize,
 }
 
 impl GrammarGenerator {
 
-    pub fn new() -> GrammarGenerator
+    pub fn new(terminals: HashSet<Symbol>) -> GrammarGenerator
     {
         GrammarGenerator { 
             rules: HashMap::new(), 
@@ -145,6 +154,7 @@ impl GrammarGenerator {
             action_table: HashMap::new(),
             goto_table: HashMap::new(),
             non_terminals: HashSet::new(),
+            terminals: terminals,
             next_word_index: 0,
         }
     }
@@ -335,7 +345,7 @@ impl GrammarGenerator {
                     self.action_table.insert((value.id, (**item).lookup_sym.clone()), Action::Accept);
                 }
                 else {
-                    self.action_table.insert((value.id, (**item).lookup_sym.clone()), Action::Reduce(*item));
+                    self.action_table.insert((value.id, (**item).lookup_sym.clone()), Action::Reduce((**item).lhs, (*(**item).production).prod.len()));
                 }
             }
 
@@ -405,27 +415,28 @@ impl GrammarGenerator {
     }
     
 
-    pub unsafe fn parse(&mut self) -> bool {
+    pub unsafe fn parse(&mut self, symbols: &Vec<Symbol>) -> bool {
         let mut stack: Vec<StackSymbol> = Vec::new();
         stack.push(StackSymbol::DollarSign);
         stack.push(StackSymbol::State(0));
 
-        let mut word: Symbol = self.get_next_word();
+        let mut word = symbols[0].clone();
+        let mut word_index = 0;
 
-        while true {
+        loop {
             let state = match &stack[stack.len() - 1] {
                 StackSymbol::State(value) => *value,
                 StackSymbol::Symbol(_) => panic!(),
                 StackSymbol::DollarSign => panic!(),
             };
-            println!("state {}", state);
+            //println!("state {}", state);
             let key = (state, word.clone());
-            println!("key {:?}", key);
+            //println!("key {:?}", key);
             if let Some(action) = self.action_table.get(&key).clone() {
-                println!("{:?}", action);
+                //println!("{:?}", action);
                 match action {
-                    Action::Reduce(lr_item) => {
-                        let num = 2 * (*(**lr_item).production).prod.len();
+                    Action::Reduce(lhs, prod_len) => {
+                        let num = 2 * prod_len;
                         for i in 0..num {
                             stack.pop();
                         }
@@ -434,9 +445,8 @@ impl GrammarGenerator {
                             StackSymbol::Symbol(_) => panic!(),
                             StackSymbol::DollarSign => panic!(),
                         };
-                        let A = (**lr_item).lhs.clone();
-                        stack.push(StackSymbol::Symbol(A.clone()));
-                        let goto = match self.goto_table.get(&(state, A)) {
+                        stack.push(StackSymbol::Symbol(lhs.clone()));
+                        let goto = match self.goto_table.get(&(state, lhs.clone())) {
                             Some(value) => value,
                             None => panic!(),
                         };
@@ -446,7 +456,8 @@ impl GrammarGenerator {
                     Action::Shift(dest) => {
                         stack.push(StackSymbol::Symbol(word));
                         stack.push(StackSymbol::State(*dest));
-                        word = self.get_next_word();
+                        word_index += 1;
+                        word = symbols[word_index].clone();
                     },
                     Action::Accept => break,
                 }

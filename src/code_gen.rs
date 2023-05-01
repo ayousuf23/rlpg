@@ -1,12 +1,13 @@
-use std::{any, io::Write};
+use std::{any, io::Write, fmt::format};
 
-use crate::{table_dfa_builder::TableDFA, nfa::TransitionKind, token::Token};
+use crate::{table_dfa_builder::TableDFA, nfa::TransitionKind, token::Token, grammar2::GrammarGenerator};
 use std::fs::File;
 
 pub struct CodeGen
 {
     pub table: TableDFA,
     pub curr_state_name: String,
+    pub grammar_gen: GrammarGenerator,
 }
 
 impl CodeGen {
@@ -115,10 +116,12 @@ impl CodeGen {
 
     pub fn create_transition_kind(&mut self) -> String 
     {
-        return "pub enum TransitionKind {\n\
-            \tCharacter(char),\n
-            \tAnyChar,\n
-        }".to_string();
+        stringify!(
+            pub enum TransitionKind {
+                Character(char),
+                AnyChar,
+            }
+        ).to_string()
     }
 
     pub fn create_check_accepting_state_function(&mut self) -> String
@@ -188,5 +191,15 @@ impl CodeGen {
         header += "\treturn None;\n";
         header += "}\n";
         return header;
+    }
+
+    pub fn get_tree_enum(&self) -> String
+    {
+        stringify!(
+            struct TreeNode {
+                pub symbol: Symbol,
+                pub children: Vec<Symbol>,
+            }
+        ).to_string()
     }
 }
