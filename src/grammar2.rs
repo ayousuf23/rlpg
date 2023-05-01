@@ -134,13 +134,11 @@ pub enum Action {
 
 pub struct GrammarGenerator {
     rules: HashMap<Symbol, GrammarRule>,
-    transitions: HashMap<*const GrammarSet, Vec<(Symbol, *const GrammarSet)>>,
     pub all_lr_items: HashMap<LRItem, *mut LRItem>,
     pub action_table: HashMap<(usize, Symbol), Action>,
     pub goto_table: HashMap<(usize, Symbol), usize>,
     pub non_terminals: HashSet<Symbol>,
     pub terminals: HashSet<Symbol>,
-    next_word_index: usize,
 }
 
 impl GrammarGenerator {
@@ -149,13 +147,11 @@ impl GrammarGenerator {
     {
         GrammarGenerator { 
             rules: HashMap::new(), 
-            transitions: HashMap::new(), 
             all_lr_items: HashMap::new(),
             action_table: HashMap::new(),
             goto_table: HashMap::new(),
             non_terminals: HashSet::new(),
             terminals: terminals,
-            next_word_index: 0,
         }
     }
 
@@ -345,7 +341,7 @@ impl GrammarGenerator {
                     self.action_table.insert((value.id, (**item).lookup_sym.clone()), Action::Accept);
                 }
                 else {
-                    self.action_table.insert((value.id, (**item).lookup_sym.clone()), Action::Reduce((**item).lhs, (*(**item).production).prod.len()));
+                    self.action_table.insert((value.id, (**item).lookup_sym.clone()), Action::Reduce((**item).lhs.clone(), (*(**item).production).prod.len()));
                 }
             }
 
@@ -468,17 +464,6 @@ impl GrammarGenerator {
             }
         }
         return true;
-    }
-
-    fn get_next_word(&mut self) -> Symbol {
-        self.next_word_index += 1;
-        if self.next_word_index == 1 {
-            return Symbol {name: "left".to_string(), is_terminal: true};
-        }
-        if self.next_word_index == 2 {
-            return Symbol {name: "right".to_string(), is_terminal: true};
-        }
-        return Symbol {name: "eof".to_string(), is_terminal: true};
     }
 }
 

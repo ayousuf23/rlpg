@@ -82,7 +82,7 @@ fn main() {
         // Print 1st node
         //DFANode::print(dfa);
 
-        println!("Enter a string to match: ");
+        /*println!("Enter a string to match: ");
         let mut to_check = String::new();
         std::io::stdin().read_line(&mut to_check).expect("failed to readline");
         let to_check = to_check.trim().to_string();
@@ -92,7 +92,7 @@ fn main() {
             panic!();
         }
         symbols.push(Symbol::eof_symbol());
-        println!("{:?}", symbols);
+        println!("{:?}", symbols);*/
 
         // Generate table dfa
         let mut table_builder = TableDFABuilder {
@@ -115,18 +115,18 @@ fn main() {
         grammar_gen.build_table(&cc);
 
         // Code gen
-        let code_gen = CodeGen {
+        let mut code_gen = CodeGen {
             table: table,
             curr_state_name: "curr".to_string(),
             grammar_gen: grammar_gen,
         };
 
         // Dir
-        /*if let Ok(path) = std::env::current_dir() {
+        if let Ok(path) = std::env::current_dir() {
             let cur_dir = path.join(Path::new("result.rs"));
 
             code_gen.generate_lexer(cur_dir.to_str().unwrap());
-        }*/
+        }
 
 
         // Print grammar rules
@@ -168,10 +168,6 @@ fn main() {
         //println!("{:?}", **item);
         //println!("End");
 
-        
-
-
-        println!("{}", code_gen.get_tree_enum());
 
         /*let result = grammar_gen.build_cannocial_collection();
         let mut i = 0;

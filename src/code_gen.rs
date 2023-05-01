@@ -25,7 +25,13 @@ impl CodeGen {
 
     pub fn generate_lexer(&mut self, path: &str)
     {
-        let mut text = self.create_transition_kind();
+        let mut text = "use std::collections::HashMap;\n".to_string();
+        text += "\n\n";
+
+        text += &self.create_structs_and_enums();
+        text += "\n";
+
+        text += &self.create_transition_kind();
         text += "\n";
         text += &self.create_check_accepting_state_function();
         text += "\n";
@@ -33,85 +39,103 @@ impl CodeGen {
         text += "\n";
         text += &self.create_parse_function();
         text += "\n";
+        text += &self.create_grammar_parse_function();
+        text += "\n";
         text += &self.create_main_fn();
         CodeGen::write_to_file(path, text);
     }
 
     fn create_main_fn(&self) -> String
     {
-        return
-"pub fn main()
-{
-    println!(\"Enter a string to match: \");
-    let mut to_check = String::new();
-    std::io::stdin().read_line(&mut to_check).expect(\"failed to readline\");
-    let to_check = to_check.trim().to_string();
-    let result = parse(to_check);
-    println!(\"{:?}\", result);
-}".to_string();
-    }
-
-    /*pub fn parse(text: String) -> Vec<String>
-    {
-        let mut curr_state = 0;
-        let seq: Vec<char> = text.chars().collect();
-        let mut index = 0;
-        let mut tokens: Vec<String> = Vec::new();
-
-        while index < seq.len() {
-            // Check if accepting state
-            if let Some(token) = is_accepting(curr_state)
-            {
-                tokens.push(token);
+        let mut main = "pub fn main()
+        {{
+            println!(\"Enter a string to match: \");
+            let mut to_check = String::new();
+            std::io::stdin().read_line(&mut to_check).expect(\"failed to readline\");
+            let to_check = to_check.trim().to_string();
+            let result = get_tokens(to_check);
+            //println!(\"{:?}\", result);
+            if let Err(err) = result {
+                println!(\"Error\");
+                return;
             }
 
-            // Perform transition or error
-            let trans_kind = TransitionKind::Character(seq[index]);
-            curr_state = transition(curr_state, trans_kind);
-            index += 1;
-        }
+            let mut result = result.unwrap();
+            let eof_token = Token::new(\"eof\".to_string(), 0, 0, Symbol::eof_symbol());
+            result.push(eof_token);
 
-        tokens
-    }*/
+        ".to_string();
+
+        main += &format!("let action_table = {}", self.create_action_table());
+
+        main += &format!("let goto_table = {}", self.create_goto_table());
+
+        main += "let grammar_result = parse(&result, action_table, goto_table);";
+        main += "println!(\"Result: {}\", grammar_result.is_err())";
+
+        main += "}}";
+        return main;
+    }
 
     pub fn create_parse_function(&mut self) -> String
     {
-"pub fn parse(text: String) -> Vec<String> 
-{
-    let mut curr_state = 1;
-    let seq: Vec<char> = text.chars().collect();
-    let mut index = 0;
-    let mut tokens: Vec<String> = Vec::new();
-    while index < seq.len() {
-        // Check if accepting state
-        
-        // Perform transition or error
-        let trans_kind = TransitionKind::Character(seq[index]);
-        if let Some(next_state) = transition(curr_state, trans_kind) {
-            curr_state = next_state
-        } else {
-            // if current state is accepting
-            if let Some(token) = is_accepting(curr_state)
+        stringify!(
+            pub fn get_tokens(text: String) -> Result<Vec<Token>, ErrorKind>
             {
-                if !token.is_empty() {
-                    tokens.push(token);
+                let mut curr_state = 1;
+                let seq: Vec<char> = text.chars().collect();
+                let mut index = 0;
+                let mut tokens: Vec<Token> = Vec::new();
+
+                // Used to keep track of lexeme info
+                let mut start_col = 0;
+                let mut end_col = 0;
+
+                while index < seq.len() {
+                    // Check if accepting state
+                    
+                    // Perform transition or error
+                    let trans_kind = TransitionKind::Character(seq[index]);
+                    if let Some(next_state) = transition(curr_state, trans_kind) {
+                        curr_state = next_state;
+                        end_col += 1;
+                    } else {
+                        // if current state is accepting
+                        if let Some(token) = is_accepting(curr_state)
+                        {
+                            //println!("token index {} {}", index, curr_state);
+                            if !token.is_empty() {
+                                let sym = Symbol {name: token.to_string(), is_terminal: true};
+                                let lexeme = text[start_col..end_col].to_string();
+                                let token = Token::new(lexeme, start_col, end_col - 1, sym);
+                                tokens.push(token);
+                            }
+                            curr_state = 1;
+                            start_col = index;
+                            end_col = index;
+                            index -= 1;
+                        }
+                        else {
+                            return Err(ErrorKind::TokenizationFailed(start_col, end_col));
+                        }
+                    }
+                    index += 1;
                 }
-                curr_state = 1;
+
+                //println!("token index {} {}", index, curr_state);
+                if let Some(token) = is_accepting(curr_state)
+                {
+                    if !token.is_empty() {
+                        let sym = Symbol {name: token.to_string(), is_terminal: true};
+                        let lexeme = text[start_col..end_col].to_string();
+                        let token = Token::new(lexeme, start_col, end_col - 1, sym);
+                        tokens.push(token);
+                    }
+                }
+                Ok(tokens)
             }
-            else {
-                panic!();
-            }
-        }
-        index += 1;
-    }
-    if let Some(token) = is_accepting(curr_state)
-    {
-        if !token.is_empty() {
-            tokens.push(token);
-        }
-    }
-    tokens
-}\n".to_string()
+
+        ).to_string()
     }
 
     pub fn create_transition_kind(&mut self) -> String 
@@ -193,13 +217,211 @@ impl CodeGen {
         return header;
     }
 
-    pub fn get_tree_enum(&self) -> String
+    fn create_grammar_parse_function(&self) -> String
     {
         stringify!(
-            struct TreeNode {
-                pub symbol: Symbol,
-                pub children: Vec<Symbol>,
+            pub fn parse(symbols: &Vec<Token>, action_table: HashMap<(usize, Symbol), Action>, goto_table: HashMap<(usize, Symbol), usize>) -> Result<TreeNode, ErrorKind> {
+                let mut stack: Vec<StackSymbol> = Vec::new();
+                stack.push(StackSymbol::DollarSign);
+                stack.push(StackSymbol::State(0));
+        
+                let mut word = symbols[0].symbol.clone();
+                let mut word_index = 0;
+
+                // Create a sentinel tree node
+                let mut node_children = vec![TreeNode {token: symbols[0].clone(), children: Vec::new()}];
+        
+                loop {
+                    let state = match &stack[stack.len() - 1] {
+                        StackSymbol::State(value) => *value,
+                        StackSymbol::Symbol(_) => panic!(),
+                        StackSymbol::DollarSign => panic!(),
+                    };
+                    //println!("state {}", state);
+                    let key = (state, word.clone());
+                    //println!("key {:?}", key);
+                    if let Some(action) = action_table.get(&key).clone() {
+                        //println!("{:?}", action);
+                        match action {
+                            Action::Reduce(lhs, prod_len) => {
+                                let num = 2 * prod_len;
+                                for i in 0..num {
+                                    stack.pop();
+                                }
+                                let state = match &stack[stack.len() - 1] {
+                                    StackSymbol::State(value) => *value,
+                                    StackSymbol::Symbol(_) => panic!(),
+                                    StackSymbol::DollarSign => panic!(),
+                                };
+                                stack.push(StackSymbol::Symbol(lhs.clone()));
+                                let goto = match goto_table.get(&(state, lhs.clone())) {
+                                    Some(value) => value,
+                                    None => panic!(),
+                                };
+                                stack.push(StackSymbol::State(*goto));
+
+                                let token = Token::new(lhs.name.to_string(), 0, 0, lhs.clone());
+                                let node = TreeNode {token: token, children: node_children};
+                                node_children = vec![node];
+                                
+                            },
+                            Action::Shift(dest) => {
+                                stack.push(StackSymbol::Symbol(word));
+                                stack.push(StackSymbol::State(*dest));
+                                word_index += 1;
+                                word = symbols[word_index].symbol.clone();
+                                let token = Token::new(word.name.to_string(), 0, 0, word.clone());
+                                let node = TreeNode {token: token, children: Vec::new()};
+                                node_children.push(node);
+                            },
+                            Action::Accept => break,
+                        }
+        
+                    }
+                    else {
+                        return Err(ErrorKind::GrammarParseFailed);
+                    }
+                }
+
+                let root_node = TreeNode {token: Token::new("root".to_string(), 0, 0, Symbol {name: "root".to_string(), is_terminal: false}), children: node_children};
+                //println!("{}", node_children[0].symbol.name);
+                return Ok(root_node);
             }
         ).to_string()
     }
+
+    fn create_action_table(&self) -> String
+    {
+        let mut table = "HashMap::from([\n".to_string();
+        for (key, value) in &self.grammar_gen.action_table {
+            let action_str = match value {
+                crate::grammar2::Action::Accept => "Action::Accept".to_string(),
+                crate::grammar2::Action::Shift(state) => format!("Action::Shift({})", state),
+                crate::grammar2::Action::Reduce(symbol, size) => format!("Action::Reduce(Symbol {{name: \"{}\".to_string(), is_terminal: {}}}, {})", symbol.name, symbol.is_terminal, size),
+            };
+            table += &format!("\t(({}, Symbol {{name: \"{}\".to_string(), is_terminal: {} }}), {}),\n", key.0, key.1.name, key.1.is_terminal, action_str);
+        }
+        table += "]);\n";
+        return table;
+    }
+
+    fn create_goto_table(&self) -> String
+    {
+        let mut table = "HashMap::from([\n".to_string();
+        for (key, value) in &self.grammar_gen.goto_table {
+            table += &format!("(({}, Symbol {{name: \"{}\".to_string(), is_terminal: {} }}), {}),\n", key.0, key.1.name, key.1.is_terminal, value);
+        }
+        table += "]);\n";
+        return table;
+    }
+
+    // Structs & enums
+    fn create_structs_and_enums(&self) -> String
+    {
+        let mut text = self.create_symbol_struct();
+        text += "\n";
+        text += &self.create_token_struct();
+        text += "\n";
+        text += &self.create_action_struct();
+        text += "\n";
+        text += &self.create_stack_symbol_struct();
+        text += "\n";
+        text += &self.create_tree_node_struct();
+        text += "\n";
+        text += &self.create_error_enum();
+        text += "\n";
+        return text;
+    }
+
+    fn create_token_struct(&self) -> String {
+        stringify!(
+            #[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
+            pub struct Token {
+                pub lexeme: String,
+                pub line: usize,
+                pub start_col: usize,
+                pub end_col: usize,
+                pub symbol: Symbol,
+            }
+
+            impl Token {
+                pub fn new(lexeme: String, start_col: usize, end_col: usize, symbol: Symbol) -> Token
+                {
+                    Token { lexeme: lexeme, line: 0, start_col: start_col, end_col: end_col, symbol: symbol }
+                }
+            }
+        ).to_string()
+    }
+
+    fn create_symbol_struct(&self) -> String {
+        stringify!(
+            #[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
+            pub struct Symbol {
+                pub name: String,
+                pub is_terminal: bool,
+            }
+
+            impl Symbol {
+            pub fn eof_symbol() -> Symbol
+            {
+                    Symbol { name: "eof".to_string(), is_terminal: true }
+            }
+            }
+        ).to_string()
+    }
+
+    fn create_action_struct(&self) -> String {
+        stringify!(
+            #[derive(Debug)]
+            pub enum Action {
+                Shift(usize),
+                // LHS and length of production
+                Reduce(Symbol, usize),
+                Accept
+            }
+        ).to_string()
+    }
+
+    fn create_stack_symbol_struct(&self) -> String
+    {
+        stringify!(
+            enum StackSymbol {
+                Symbol(Symbol),
+                State(usize),
+                DollarSign,
+            }
+        ).to_string()
+    }
+
+    fn create_tree_node_struct(&self) -> String
+    {
+        stringify!(
+            pub struct TreeNode {
+                pub token: Token,
+                pub children: Vec<TreeNode>,
+            }
+        ).to_string()
+    }
+
+    fn create_error_enum(&self) -> String
+    {
+        stringify!(
+            #[derive(Debug)]
+            pub enum ErrorKind {
+                GrammarParseFailed,
+                TokenizationFailed(usize, usize),
+            }
+
+            impl ErrorKind {
+                pub fn get_err_message(&self) -> String
+                {
+                    return match self  {
+                        Self::GrammarParseFailed => "Error: the token sequence is not accepted by the grammar".to_string(),
+                        Self::TokenizationFailed(start, end) => format!("Error: unable to tokenize the sequence of characters starting at {} and ending at {}", start, end),
+                    }
+                }
+            }
+        ).to_string()
+    }
+
 }
