@@ -148,7 +148,7 @@ impl FileParser {
 
     pub fn parse_file(&mut self, path: &str) -> Result<Vec<Rule>, FileParserError> {
         let file = match File::open(path) {
-            Ok(innerFile) => innerFile,
+            Ok(inner_file) => inner_file,
             Err(error) => return Err(FileParserError::new(FileParserErrorKind::FileOpenError, Some(Box::new(error)))),
         };
 
@@ -591,7 +591,7 @@ impl FileParser {
                 unsafe {
                     if *rule.productions[i] == *rule.productions[j]
                     {
-                        return false;
+                        return true;
                     }
                 }
             }

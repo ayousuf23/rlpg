@@ -266,7 +266,7 @@ fn test_rule_formatting()
 
     // Rule name with special characters and ;
     // Rule name with ;
-    /*assert_file_parse_failure("grammar_tests/special_rule_name1.txt", FileParserErrorKind::InvalidIdentifier);
+    assert_file_parse_failure("grammar_tests/special_rule_name1.txt", FileParserErrorKind::InvalidIdentifier);
     assert_file_parse_failure("grammar_tests/special_rule_name2.txt", FileParserErrorKind::InvalidIdentifier);
     assert_file_parse_failure("grammar_tests/special_rule_name3.txt", FileParserErrorKind::InvalidIdentifier);
 
@@ -285,5 +285,28 @@ fn test_rule_formatting()
     assert_file_parse_failure("grammar_tests/no_colon_after_name.txt", FileParserErrorKind::InvalidGrammarRule);
 
     // Consecutive first lines
-    assert_file_parse_failure("grammar_tests/consecutive_first_lines.txt", FileParserErrorKind::InvalidProduction);*/
+    assert_file_parse_failure("grammar_tests/consecutive_first_lines.txt", FileParserErrorKind::InvalidProduction);
+}
+
+#[test]
+fn test_rule_with_duplicate_productions()
+{
+    assert_file_parse_failure("grammar_tests/duplicate_production.txt", FileParserErrorKind::DuplicateProduction);
+}
+
+#[test]
+fn test_root_rule_in_grammar_section()
+{
+    // Test ensure file parse fails if root rule does not exist
+    assert_file_parse_failure("grammar_tests/root_rule_missing.txt", FileParserErrorKind::RootRuleDoesNotExist);
+
+    // Test ensure file parse succeeds if root rule exists
+    assert_file_parse_success("grammar_tests/root_rule_exists.txt")
+}
+
+#[test]
+fn test_rule_named_eof_fails()
+{
+    // Test ensure file parse fails if root rule does not exist
+    assert_file_parse_failure("grammar_tests/rule_named_eof.txt", FileParserErrorKind::InvalidIdentifier);
 }

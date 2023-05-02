@@ -1,0 +1,6 @@
+SECTION LEXER
+number [0-9]+
+SECTION GRAMMAR
+root: number
+| number
+;
