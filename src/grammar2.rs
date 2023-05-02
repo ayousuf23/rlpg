@@ -19,7 +19,7 @@ pub struct GrammarRule {
     pub productions: Vec<*mut Production>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Production {
     //pub lhs: Symbol,
     pub prod: Vec<Symbol>,

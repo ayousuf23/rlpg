@@ -26,6 +26,8 @@ pub enum FileParserErrorKind {
     DuplicateGrammarRuleName,
     UnknownSymbol,
     InvalidIdentifier,
+    DuplicateProduction,
+    RootRuleDoesNotExist,
 }
 
 #[derive(Debug)]
@@ -58,6 +60,8 @@ impl FileParserError {
             FileParserErrorKind::DuplicateGrammarRuleName => "There already exists a grammar rule with the same name.",
             FileParserErrorKind::UnknownSymbol => "This symbol is not defined or has not been defined yet.",
             FileParserErrorKind::InvalidIdentifier => "The identifer is invalid because it contains special or invalid characters.",
+            FileParserErrorKind::DuplicateProduction => "The grammar rule contains duplicate productions.",
+            FileParserErrorKind::RootRuleDoesNotExist => "A grammar rule with the name of 'root' does not exist.",
         };
         return msg.to_string();
     }
@@ -269,6 +273,12 @@ impl FileParser {
         if name == "SECTION" {
             return Err(FileParserError::new(FileParserErrorKind::InvalidRuleName, None));
         }
+        else if name == "eof" {
+            return Err(FileParserError::new(FileParserErrorKind::InvalidRuleName, None));
+        }
+        else if name == "root" {
+            return Err(FileParserError::new(FileParserErrorKind::InvalidRuleName, None));
+        }
 
         if name == "unnamed" {
             return Ok(RuleKind::Unnamed);
@@ -313,6 +323,7 @@ impl FileParser {
         let mut rules: Vec<GrammarRule> = Vec::new();
         let mut prev_rule: Option<GrammarRule> = None;
         let mut in_middle_of_rule = false;
+        let mut root_rule_exists = false;
 
         while let Ok(result) = reader.read_line(&mut line) {
             if result == 0 {
@@ -341,15 +352,18 @@ impl FileParser {
 
                     if let Some(rule) = &mut prev_rule {
                         let another_prod = another_prod.unwrap();
-                        unsafe {
-                            //(*another_prod).lhs = Symbol {name: rule.name.to_string(), is_terminal: false};
-                        }
-                        
                         rule.productions.push(another_prod);
                     }
                 } else {
                     in_middle_of_rule = false;
                     let t = prev_rule.take().unwrap();
+                    if self.does_rule_contain_duplicate_prods(&t)
+                    {
+                        return Err(FileParserError { kind: FileParserErrorKind::DuplicateProduction, inner_error: None });
+                    }
+                    if t.name == "root" {
+                        root_rule_exists = true;
+                    }
                     rules.push(t);
                     prev_rule = None;
                 }
@@ -376,6 +390,11 @@ impl FileParser {
 
         if rules.len() == 0 {
             return Err(FileParserError::new(FileParserErrorKind::NoGrammarRules, None))
+        }
+
+        // Ensure one rule called root exists
+        if !root_rule_exists {
+            return Err(FileParserError { kind: FileParserErrorKind::RootRuleDoesNotExist, inner_error: None });
         }
 
         return Ok(rules);
@@ -550,6 +569,10 @@ impl FileParser {
 
     fn is_identifier_valid(identifier: &str) -> bool
     {
+        if identifier == "eof" {
+            return false;
+        }
+
         for c in identifier.chars() {
             if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'z') 
             || ('A' <= c && c <= 'Z') || c == '_' || c == '-') {
@@ -557,6 +580,23 @@ impl FileParser {
             }
         }
         return true;
+    }
+
+    fn does_rule_contain_duplicate_prods(&self, rule: &GrammarRule) -> bool
+    {
+        for i in 0..rule.productions.len()
+        {
+            for j in i+1..rule.productions.len()
+            {
+                unsafe {
+                    if *rule.productions[i] == *rule.productions[j]
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     pub fn get_terminals(&self) -> HashSet<Symbol>
@@ -569,4 +609,6 @@ impl FileParser {
         }
         return set;
     }
+
+
 }

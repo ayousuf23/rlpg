@@ -136,6 +136,8 @@ impl CodeGen {
                         tokens.push(token);
                     }
                 }
+                let eof_token = Token::new("eof".to_string(), end_col, end_col, Symbol::eof_symbol());
+                tokens.push(eof_token);
                 Ok(tokens)
             }
 
@@ -224,9 +226,10 @@ impl CodeGen {
     fn create_grammar_parse_function(&self) -> String
     {
         stringify!(
-            pub fn parse(symbols: &Vec<Token>, goto_table: HashMap<(usize, Symbol), usize>) -> Result<TreeNode, ErrorKind> {
+            pub fn parse(symbols: &Vec<Token>) -> Result<TreeNode, ErrorKind> {
                 
                 let action_table = get_action_table();
+                let goto_table: HashMap<(usize, Symbol), usize> = get_goto_table();
 
                 let mut stack: Vec<StackSymbol> = Vec::new();
                 stack.push(StackSymbol::DollarSign);
@@ -235,8 +238,10 @@ impl CodeGen {
                 let mut word = symbols[0].symbol.clone();
                 let mut word_index = 0;
 
-                // Create a sentinel tree node
                 let mut node_children = vec![TreeNode {token: symbols[0].clone(), children: Vec::new()}];
+
+                let mut start_col = 0;
+                let mut end_col = 0;
         
                 loop {
                     let state = match &stack[stack.len() - 1] {
@@ -244,11 +249,11 @@ impl CodeGen {
                         StackSymbol::Symbol(_) => panic!(),
                         StackSymbol::DollarSign => panic!(),
                     };
-                    //println!("state {}", state);
+                    
                     let key = (state, word.clone());
-                    //println!("key {:?}", key);
+                    
                     if let Some(action) = action_table.get(&key).clone() {
-                        //println!("{:?}", action);
+                        
                         match action {
                             Action::Reduce(lhs, prod_len) => {
                                 let num = 2 * prod_len;
@@ -277,7 +282,7 @@ impl CodeGen {
                                 stack.push(StackSymbol::State(*dest));
                                 word_index += 1;
                                 word = symbols[word_index].symbol.clone();
-                                let token = Token::new(word.name.to_string(), 0, 0, word.clone());
+                                let token = Token::new(symbols[word_index].lexeme.to_string(), symbols[word_index].start_col, symbols[word_index].end_col, word.clone());
                                 let node = TreeNode {token: token, children: Vec::new()};
                                 node_children.push(node);
                             },
@@ -291,7 +296,6 @@ impl CodeGen {
                 }
 
                 let root_node = TreeNode {token: Token::new("root".to_string(), 0, 0, Symbol {name: "root".to_string(), is_terminal: false}), children: node_children};
-                //println!("{}", node_children[0].symbol.name);
                 return Ok(root_node);
             }
         ).to_string()
@@ -421,6 +425,7 @@ impl CodeGen {
     fn create_tree_node_struct(&self) -> String
     {
         stringify!(
+            #[derive(Debug)]
             pub struct TreeNode {
                 pub token: Token,
                 pub children: Vec<TreeNode>,
