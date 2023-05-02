@@ -2,3 +2,6 @@ SECTION LEXER
 rule1 hello
 unnamed cheese
 rule2 hello
+SECTION GRAMMAR
+root: rule1
+;

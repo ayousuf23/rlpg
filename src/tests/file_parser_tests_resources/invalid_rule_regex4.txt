@@ -1,2 +1,5 @@
 SECTION LEXER
 rule1 [ ]
+SECTION GRAMMAR
+root: rule1
+;

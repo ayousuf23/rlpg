@@ -127,58 +127,5 @@ fn main() {
 
             code_gen.generate_lexer(cur_dir.to_str().unwrap());
         }
-
-
-        // Print grammar rules
-        //println!("{:?}", file_parser.grammar_rules);
-        /*for rule in &file_parser.grammar_rules {
-            println!("Name: {}", rule.name);
-            for prod in &rule.productions {
-                println!("{:?}", (**prod).prod);
-            }
-        }*/
-
-        
-
-        // goal
-        //let goal = grammar_gen.get_goal_grammar_set();
-        //let c = grammar_gen.get_closure(goal);
-
-        // do goto
-        //let goto = grammar_gen.get_goto(&c, &grammar2::Symbol{is_terminal: true, name: "left".to_string()});
-
-        /*println!("Start");
-        for prod in &(goto).set {
-            println!("{}", **prod);
-        }
-        //println!("{:?}", **item);
-        println!("End");*/
-
-        
-        //println!("{}", cc.len());
-
-        //println!("Start");
-        /*for set in (cc).keys() {
-            println!("Start");
-            for prod in &set.set {
-                println!("{}", **prod);
-            }
-            println!("End");
-        }*/
-        //println!("{:?}", **item);
-        //println!("End");
-
-
-        /*let result = grammar_gen.build_cannocial_collection();
-        let mut i = 0;
-        for item in &result {
-            println!("Start");
-            for prod in &(**item).set {
-                println!("{}", prod);
-            }
-            //println!("{:?}", **item);
-            println!("End");
-        }*/
-        //println!("{:?}", result);
     }
 }

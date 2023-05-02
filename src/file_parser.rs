@@ -22,6 +22,7 @@ pub enum FileParserErrorKind {
     InvalidGrammarRule,
     MissingGrammarRuleEndSymbol,
     NoGrammarRules,
+    NoGrammarSection,
     InvalidProduction,
     DuplicateGrammarRuleName,
     UnknownSymbol,
@@ -62,6 +63,7 @@ impl FileParserError {
             FileParserErrorKind::InvalidIdentifier => "The identifer is invalid because it contains special or invalid characters.",
             FileParserErrorKind::DuplicateProduction => "The grammar rule contains duplicate productions.",
             FileParserErrorKind::RootRuleDoesNotExist => "A grammar rule with the name of 'root' does not exist.",
+            FileParserErrorKind::NoGrammarSection => "The file does not contain a grammar section, which is required.",
         };
         return msg.to_string();
     }
@@ -208,14 +210,17 @@ impl FileParser {
             return Err(FileParserError::new(FileParserErrorKind::NoRules, None));
         }
 
-        // Parse grammar
-        if found_grammar_section {
-            let result = self.parse_grammar_section(&mut reader);
-            if result.is_err() {
-                return Err(result.err().unwrap());
-            }
-            self.grammar_rules = result.unwrap();
+        if !found_grammar_section {
+            return Err(FileParserError { kind: FileParserErrorKind::NoGrammarSection, inner_error: None });
         }
+
+        // Parse grammar
+        let result = self.parse_grammar_section(&mut reader);
+        if result.is_err() {
+            return Err(result.err().unwrap());
+        }
+        self.grammar_rules = result.unwrap();
+        
 
         return Ok(rules);
     }

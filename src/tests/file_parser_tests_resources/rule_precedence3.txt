@@ -1,3 +1,6 @@
 SECTION LEXER
 unnamed hello
 rule1 hello
+SECTION GRAMMAR
+root: rule1
+;
