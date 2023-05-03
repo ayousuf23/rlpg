@@ -13,5 +13,5 @@ list: list pair
 | pair
 ;
 
-root: list
+root: root
 ;

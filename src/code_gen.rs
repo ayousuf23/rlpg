@@ -12,18 +12,21 @@ pub struct CodeGen
 
 impl CodeGen {
 
-    fn write_to_file(path: &str, text: String)
+    fn write_to_file(path: &str, text: String) -> std::io::Result<()>
     {
-        if let Ok(mut file) = File::create(path)
-        {
-            if let Err(err) = file.write_all(text.as_bytes())
-            {
-
-            }
-        }   
+        match File::create(path) {
+            Ok(mut file) => {
+                if let Err(error) = file.write_all(text.as_bytes())
+                {
+                    return Err(error);
+                }
+            },
+            Err(error) => return Err(error),
+        }
+        return Ok(());
     }
 
-    pub fn generate_lexer(&mut self, path: &str)
+    pub fn generate_lexer(&mut self, path: &str) -> std::io::Result<()>
     {
         let mut text = "use std::collections::HashMap;\n".to_string();
         text += "\n\n";
@@ -46,7 +49,8 @@ impl CodeGen {
         text += &self.create_grammar_parse_function();
         text += "\n";
         text += &self.create_main_fn();
-        CodeGen::write_to_file(path, text);
+        
+        return CodeGen::write_to_file(path, text);
     }
 
     fn create_main_fn(&self) -> String

@@ -6,7 +6,8 @@ mod node_kind;
 
 mod nfa_builder;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use crate::code_gen::CodeGen;
 use crate::dfa_builder::DFABuilder;
@@ -48,8 +49,11 @@ mod code_gen;
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Filename to parse
-    #[arg(short, long)]
+    #[arg(long)]
     filename: String,
+    /// Path of the output file
+    #[arg(long)]
+    output: String,
 }
 
 fn main() {
@@ -58,11 +62,11 @@ fn main() {
 
     let mut file_parser = FileParser::new();
 
-    // Open the file
+    // Open the file and parse it
     let file_parse_result = file_parser.parse_file(&args.filename);
     if let Err(error) = file_parse_result
     {
-        println!("{}", error);
+        println!("{}", format!("Error: {}", error.to_string()).red());
         return;
     }
     let rules = file_parse_result.unwrap();
@@ -71,28 +75,13 @@ fn main() {
     // Take the rules and build an NFA
     unsafe {
         let nfa = NFA::build_from_rules(&rules);
-        if nfa.is_err()
+        if let Err(error) = nfa
         {
-            println!("{}", nfa.err().unwrap());
+            println!("{}", format!("Error: {}", error.to_string()).red());
             return;
         }
 
         let dfa = dfa_builder::DFABuilder::convert_nfa_to_dfa(nfa.unwrap());
-
-        // Print 1st node
-        //DFANode::print(dfa);
-
-        /*println!("Enter a string to match: ");
-        let mut to_check = String::new();
-        std::io::stdin().read_line(&mut to_check).expect("failed to readline");
-        let to_check = to_check.trim().to_string();
-
-        let (result, mut symbols) = DFASimulator::simulate_dfa_and_get_tokens(dfa, &to_check);
-        if !result {
-            panic!();
-        }
-        symbols.push(Symbol::eof_symbol());
-        println!("{:?}", symbols);*/
 
         // Generate table dfa
         let mut table_builder = TableDFABuilder {
@@ -121,11 +110,23 @@ fn main() {
             grammar_gen: grammar_gen,
         };
 
-        // Dir
-        if let Ok(path) = std::env::current_dir() {
-            let cur_dir = path.join(Path::new("result.rs"));
+        //let path = std::path::Path::
 
-            code_gen.generate_lexer(cur_dir.to_str().unwrap());
+        match PathBuf::from_str(&args.output) {
+            Ok(path) => {
+                if path.exists() {
+                    println!("{}", format!("Error: The path {} already exists. Please delete it then try again.", path.to_str().unwrap()).red());
+                }
+                else {
+                    if let Err(error) = code_gen.generate_lexer(path.to_str().unwrap())
+                    {
+                        println!("{}", format!("Error: {}", error.to_string()).red());
+                    }
+                }
+                
+            },
+            // This case is considered infalliable
+            Err(_) => (),
         }
     }
 }
