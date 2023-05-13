@@ -1,16 +1,30 @@
-use std::{collections::{HashMap, HashSet, BTreeSet, BTreeMap}, fmt::Display};
+use std::{collections::{HashMap, HashSet, BTreeSet}, fmt::Display};
+
+#[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
+pub enum Empty {
+    Empty,
+    NonEmpty,
+    PossiblyEmpty,
+}
+
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug, PartialOrd, Ord)]
 pub struct Symbol {
     pub name: String,
     pub is_terminal: bool,
+    pub emptiness: Empty,
 }
 
 impl Symbol {
-   pub fn eof_symbol() -> Symbol
-   {
-        Symbol { name: "eof".to_string(), is_terminal: true }
-   }
+    pub fn new(name: String, is_terminal: bool, emptiness: Empty) -> Symbol
+    {
+        Symbol { name, is_terminal, emptiness }
+    }
+
+    pub fn eof_symbol() -> Symbol
+    {
+        Symbol::new("eof".to_string(), true, Empty::NonEmpty)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -161,6 +175,49 @@ impl GrammarGenerator {
         self.rules.insert(symbol, rule);
     }
 
+    pub unsafe fn get_first_set_lr_item(&self, item: *const LRItem, index: usize) -> HashSet<Symbol>
+    {
+        let mut result: HashSet<Symbol> = HashSet::new();
+        // Validate index
+        if index < 0 || index >= (*(*item).production).prod.len() {
+            return HashSet::new();
+        }
+
+        let mut index = index;
+
+        loop {
+            // Get symbol at index
+            let sym;
+            if index == (*(*item).production).prod.len() {
+                sym = &(*item).lookup_sym;
+            } else {
+                sym = &(*(*item).production).prod[index];
+            }
+
+            match sym.emptiness {
+                Empty::NonEmpty => {
+                    let temp = self.get_first_set(sym);
+                    for temp_sym in temp {
+                        result.insert(temp_sym);
+                    }
+                    return result;
+                },
+                Empty::Empty => {
+                    // Skip current symbol
+                    index += 1;
+                },
+                Empty::PossiblyEmpty => {
+                    let temp = self.get_first_set(sym);
+                    for temp_sym in temp {
+                        result.insert(temp_sym);
+                    }
+                    index += 1;
+                },
+            }
+        }
+        return result;
+    }
+
     // Function to compute first set
     pub fn get_first_set(&self, symbol: &Symbol) -> HashSet<Symbol>
     {
@@ -238,8 +295,10 @@ impl GrammarGenerator {
                 }
 
                 // Get the first set for this symbol
-                let sym_after_next_sym = (*lr_item).get_symbol_after_next_symbol();
-                let first_set = self.get_first_set(&sym_after_next_sym);
+                //let sym_after_next_sym = (*lr_item).get_symbol_after_next_symbol();
+                //let first_set = self.get_first_set(&sym_after_next_sym);
+
+                let first_set = self.get_first_set_lr_item(lr_item, (*lr_item).placeholder_index + 1);
 
                 //println!("sym: {}, first set: {:?}", next_sym.name, first_set);
 
@@ -392,14 +451,14 @@ impl GrammarGenerator {
     }
 
     pub fn get_goal_grammar_set(&mut self) -> GrammarSet {
-        let root_sym = Symbol { name: "root".to_string(), is_terminal: false };
+        let root_sym = Symbol { name: "root".to_string(), is_terminal: false, emptiness: crate::grammar2::Empty::NonEmpty };
         let root_rule = match self.rules.get(&root_sym) {
             Some(value) => value,
             None => todo!(),
         }.clone();
 
         let mut grammar_set = GrammarSet::new(BTreeSet::new());
-        let eof_sym = Symbol { name: "eof".to_string(), is_terminal: true };
+        let eof_sym = Symbol { name: "eof".to_string(), is_terminal: true, emptiness: crate::grammar2::Empty::NonEmpty };
         
         for prod in &root_rule.productions {
             // Convert to LR Item

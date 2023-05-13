@@ -30,7 +30,7 @@ impl DFASimulator {
                 if let crate::dfa_builder::DFANodeKind::Accept(token) = &(*next).kind 
                 {
                     if !token.is_empty() {
-                        tokens.push(Symbol{name: token.to_string(), is_terminal: true});
+                        tokens.push(Symbol{name: token.to_string(), is_terminal: true, emptiness: crate::grammar2::Empty::NonEmpty});
                     }
                     next = node;
                     // Add CONTINUE here
@@ -50,7 +50,7 @@ impl DFASimulator {
         if let crate::dfa_builder::DFANodeKind::Accept(token) = &(*next).kind 
         {
             if !token.is_empty() {
-                tokens.push(Symbol {name: token.to_string(), is_terminal: true});
+                tokens.push(Symbol {name: token.to_string(), is_terminal: true, emptiness: crate::grammar2::Empty::NonEmpty});
             }
             return (true, tokens);
         } else {

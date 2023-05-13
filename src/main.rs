@@ -95,7 +95,7 @@ fn main() {
         let mut grammar_gen = grammar2::GrammarGenerator::new(file_parser.get_terminals());
      
         for rule in file_parser.grammar_rules {
-            let symbol = grammar2::Symbol { name: rule.name.to_string(), is_terminal: false };
+            let symbol = grammar2::Symbol { name: rule.name.to_string(), is_terminal: false, emptiness: crate::grammar2::Empty::NonEmpty };
             grammar_gen.add_rule(symbol, rule);
         }
         let cc = grammar_gen.build_cannocial_collection();

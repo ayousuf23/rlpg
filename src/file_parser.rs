@@ -444,7 +444,7 @@ impl FileParser {
         while let Some(temp_name) = self.parse_identifier(&line, &mut line_index) {
             // Check if symbol is defined
             if let Some(is_terminal) = self.symbols.get(&temp_name) {
-                production.push(Symbol { name: temp_name, is_terminal: *is_terminal });
+                production.push(Symbol { name: temp_name, is_terminal: *is_terminal, emptiness: crate::grammar2::Empty::NonEmpty });
             }
             else if !FileParser::is_identifier_valid(&temp_name) {
                 return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
@@ -479,7 +479,7 @@ impl FileParser {
         while let Some(temp_name) = self.parse_identifier(&line, &mut line_index) {
             // Check if symbol is defined
             if let Some(is_terminal) = self.symbols.get(&temp_name) {
-                production.push(Symbol { name: temp_name, is_terminal: *is_terminal });
+                production.push(Symbol { name: temp_name, is_terminal: *is_terminal, emptiness: crate::grammar2::Empty::NonEmpty });
             }
             else if !FileParser::is_identifier_valid(&temp_name) {
                 return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
@@ -609,7 +609,7 @@ impl FileParser {
         let mut set = HashSet::new();
         for (item, is_terminal) in &self.symbols {
             if *is_terminal {
-                set.insert(Symbol {name: item.to_string(), is_terminal: true});
+                set.insert(Symbol {name: item.to_string(), is_terminal: true, emptiness: crate::grammar2::Empty::NonEmpty});
             }
         }
         return set;

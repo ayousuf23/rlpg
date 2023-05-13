@@ -144,7 +144,7 @@ impl NFANode {
 
             if let NFANodeKind::EndWithToken(token) = &curr_node.kind  {
                 let lexeme = chars[state.start_i..state.end_i].into_iter().collect();
-                tokens.push(Token {lexeme, line: 1, start_col: state.start_i, end_col: state.end_i - 1, symbol: crate::grammar2::Symbol { name: token.to_string(), is_terminal: true }});
+                tokens.push(Token {lexeme, line: 1, start_col: state.start_i, end_col: state.end_i - 1, symbol: crate::grammar2::Symbol { name: token.to_string(), is_terminal: true, emptiness: crate::grammar2::Empty::NonEmpty }});
             }
             else if let NFANodeKind::Start = &curr_node.kind {
                 state.start_i = state.end_i;
