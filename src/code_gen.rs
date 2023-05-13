@@ -124,6 +124,8 @@ impl CodeGen {
                             index -= 1;
                         }
                         else {
+                            println!("tokens: {:?}", tokens);
+                            println!("here");
                             return Err(ErrorKind::TokenizationFailed(start_col, end_col));
                         }
                     }
@@ -242,7 +244,7 @@ impl CodeGen {
                 let mut word = symbols[0].symbol.clone();
                 let mut word_index = 0;
 
-                let mut node_children = vec![TreeNode {token: symbols[0].clone(), children: Vec::new()}];
+                let mut node_children: Vec<TreeNode> = vec![];
 
                 let mut start_col = 0;
                 let mut end_col = 0;
@@ -253,10 +255,16 @@ impl CodeGen {
                         StackSymbol::Symbol(_) => panic!(),
                         StackSymbol::DollarSign => panic!(),
                     };
+
+                    // Print state
+                    //println!("Word: {:?} State: {:?}", word, state);
                     
                     let key = (state, word.clone());
                     
                     if let Some(action) = action_table.get(&key).clone() {
+
+                        // Print action 
+                        //println!("Action: {:?}", action);
                         
                         match action {
                             Action::Reduce(lhs, prod_len) => {
@@ -277,18 +285,29 @@ impl CodeGen {
                                 stack.push(StackSymbol::State(*goto));
 
                                 let token = Token::new(lhs.name.to_string(), 0, 0, lhs.clone());
-                                let node = TreeNode {token: token, children: node_children};
-                                node_children = vec![node];
+
+                                let mut new_node_children = Vec::new();
+                                for i in 0..*prod_len {
+                                    let x = node_children.pop().unwrap();
+                                    new_node_children.push(x);
+                                }
+                                let node = TreeNode {token: token, children: new_node_children};
+                                //println!("Reduced: {:#?}", node);
+                                node_children.push(node);
                                 
                             },
                             Action::Shift(dest) => {
-                                stack.push(StackSymbol::Symbol(word));
+                                stack.push(StackSymbol::Symbol(word.clone()));
                                 stack.push(StackSymbol::State(*dest));
-                                word_index += 1;
-                                word = symbols[word_index].symbol.clone();
+                                
                                 let token = Token::new(symbols[word_index].lexeme.to_string(), symbols[word_index].start_col, symbols[word_index].end_col, word.clone());
                                 let node = TreeNode {token: token, children: Vec::new()};
                                 node_children.push(node);
+
+                                word_index += 1;
+                                word = symbols[word_index].symbol.clone();
+                                //println!("Shift");
+                                //println!("{:?}", node_children);
                             },
                             Action::Accept => break,
                         }
@@ -298,7 +317,7 @@ impl CodeGen {
                         return Err(ErrorKind::GrammarParseFailed);
                     }
                 }
-
+                
                 let root_node = TreeNode {token: Token::new("root".to_string(), 0, 0, Symbol {name: "root".to_string(), is_terminal: false}), children: node_children};
                 return Ok(root_node);
             }

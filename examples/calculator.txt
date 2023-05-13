@@ -4,17 +4,24 @@ plus \+
 minus \-
 times \*
 divide \/
+mod \%
+l_paren \(
+r_paren \)
+space [\ ]*
 
 SECTION GRAMMAR
 
-term: number
-| number times number
-| number divide number
+primary_expr: number
 ;
 
-expression: term plus term 
-| term minus term
-| term
+unary_expr: primary_expr
+;
+
+term: unary_expr
+;
+
+expression: term
+| expression space plus term
 ;
 
 root: expression

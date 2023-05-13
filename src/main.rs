@@ -100,6 +100,14 @@ fn main() {
         }
         let cc = grammar_gen.build_cannocial_collection();
 
+        // Print cc
+        /*for (set, info) in cc {
+            println!("Item {}", info.id);
+            for item in &set.set {
+                println!("{}", **item);
+            }   
+        }*/
+
         // Fill table
         grammar_gen.build_table(&cc);
 
