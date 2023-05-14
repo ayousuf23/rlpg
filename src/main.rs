@@ -80,8 +80,9 @@ fn main() {
             println!("{}", format!("Error: {}", error.to_string()).red());
             return;
         }
-
-        let dfa = dfa_builder::DFABuilder::convert_nfa_to_dfa(nfa.unwrap());
+        let (nfa, map) = nfa.unwrap();
+        println!("{:?}", map);
+        let dfa = dfa_builder::DFABuilder::convert_nfa_to_dfa(nfa);
 
         // Generate table dfa
         let mut table_builder = TableDFABuilder {
@@ -111,8 +112,21 @@ fn main() {
         // Fill table
         grammar_gen.build_table(&cc);
 
+        let one = Symbol {
+            name: "number".to_string(),
+            is_terminal: true,
+            emptiness: grammar2::Empty::NonEmpty,
+        };
+        let plus = Symbol {
+            name: "plus".to_string(),
+            is_terminal: true,
+            emptiness: grammar2::Empty::NonEmpty,
+        };
+        let symbols = vec![one.clone(), plus, one, crate::grammar2::Symbol::eof_symbol()];
+        println!("{}", grammar_gen.parse(&symbols));
+
         // Code gen
-        let mut code_gen = CodeGen {
+        /*let mut code_gen = CodeGen {
             table: table,
             curr_state_name: "curr".to_string(),
             grammar_gen: grammar_gen,
@@ -135,6 +149,6 @@ fn main() {
             },
             // This case is considered infalliable
             Err(_) => (),
-        }
+        }*/
     }
 }

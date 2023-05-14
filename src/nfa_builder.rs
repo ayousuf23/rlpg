@@ -1,6 +1,6 @@
 use std::{rc::Rc, sync::Mutex, error::Error};
 
-use crate::{nfa::{NFA, NFANode, Transition, TransitionKind, NFANodeKind}, node::Node, node_kind::NodeKind};
+use crate::{nfa::{NFA, NFANode, Transition, TransitionKind, NFANodeKind}, node::Node, node_kind::NodeKind, grammar2::Empty};
 
 #[derive(Debug)]
 pub enum NFABuilderError 
@@ -65,6 +65,8 @@ impl NFABuilder {
         let mut first_start: Option<Rc<Mutex<NFANode>>> = None;
         let mut last_end: Option<Rc<Mutex<NFANode>>> = None;
 
+        let mut emptiness = Empty::PossiblyEmpty;
+
         for (index, child) in node.children.iter().enumerate() {
             // Create an NFA for the child
             let child_nfa = NFABuilder::build(child.as_ref());
@@ -77,6 +79,12 @@ impl NFABuilder {
                 first_start = Some(Rc::clone(&child_nfa.start));
             } else {
                 NFABuilder::node_change_kind_and_add_transition(&child_nfa.start, Some(NFANodeKind::Intersection), None);
+            }
+
+            // Check emptiness
+            let child_nfa_start = child_nfa.start.lock().unwrap();
+            if let Empty::NonEmpty = child_nfa_start.emptiness {
+                emptiness = Empty::NonEmpty;
             }
 
             if index > 0 {
@@ -92,6 +100,9 @@ impl NFABuilder {
         }
 
         if let Some(first_start) = first_start {
+            let mut first_start_locked = first_start.lock().unwrap();
+            first_start_locked.emptiness = emptiness;
+            drop(first_start_locked);
             return Ok(NFA {
                 start: first_start,
                 end: last_end.unwrap(),
@@ -134,6 +145,7 @@ impl NFABuilder {
 
         // Add empty transition from new_start to end
         new_start.add_transition_to(Rc::clone(&nfa.end), TransitionKind::Empty, 1);
+        new_start.emptiness = Empty::PossiblyEmpty;
 
         // Add empty transition from new_start to start
         new_start.add_transition_to(nfa.start, TransitionKind::Empty, 1);
@@ -147,6 +159,7 @@ impl NFABuilder {
             Err(err) => return Err(err),
         };
         let mut start = nfa.start.lock().unwrap();
+        start.emptiness = Empty::PossiblyEmpty;
 
         // Add empty transition from new_start to end
         start.add_transition_to(Rc::clone(&nfa.end), TransitionKind::Empty, 1);
@@ -164,6 +177,8 @@ impl NFABuilder {
             1 =>  return NFABuilder::build(node.children[0].as_ref()),
             _ => (),
         }
+
+        let mut emptiness = Empty::NonEmpty;
         
         // Create a new start node
         let real_start = Rc::new(Mutex::new(NFANode::new_start()));
@@ -182,6 +197,13 @@ impl NFABuilder {
             // Change start node to intersection
             NFABuilder::node_change_kind_and_add_transition(&built_child.start, Some(NFANodeKind::Intersection), None);
 
+            // Check emptiness
+            let lock_start = built_child.start.lock().unwrap();
+            if let Empty::PossiblyEmpty = lock_start.emptiness {
+                emptiness = Empty::PossiblyEmpty;
+            }
+            drop(lock_start);
+
             // Change the end to an intersection
             let mut built_child_end = built_child.end.lock().unwrap();
             built_child_end.kind = NFANodeKind::Intersection;
@@ -191,8 +213,9 @@ impl NFABuilder {
             // Add empty transition to child start
             start.add_transition_to(built_child.start, TransitionKind::Empty, 1);
         }
+        start.emptiness = emptiness;
         drop(start);
-
+        
         return Ok(NFA {start: real_start, end});
     }
 

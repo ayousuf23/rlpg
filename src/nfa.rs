@@ -1,6 +1,6 @@
-use std::{rc::Rc, sync::Mutex, collections::{VecDeque, HashSet}, error::Error};
+use std::{rc::Rc, sync::Mutex, collections::{VecDeque, HashSet, HashMap}, error::Error};
 
-use crate::{file_parser::Rule, regex_parser::{RegExParser, RegExParserError}, NFABuilder, token::Token, nfa_builder::NFABuilderError};
+use crate::{file_parser::Rule, regex_parser::{RegExParser, RegExParserError}, NFABuilder, token::Token, nfa_builder::NFABuilderError, grammar2::Empty};
 
 #[derive(Eq,PartialEq, Debug, Hash, Clone)]
 pub enum TransitionKind {
@@ -33,6 +33,7 @@ pub struct NFANode {
     pub data: String,
     pub transitions: Vec<Transition>,
     pub id: i32,
+    pub emptiness: crate::grammar2::Empty,
 }
 
 #[derive(Debug)]
@@ -68,7 +69,7 @@ impl NFANode {
         static mut COUNTER: i32 = 0;
         COUNTER += 1;
         //println!("{}", COUNTER);
-        NFANode { kind: kind, data: data, transitions: Vec::new(), id: COUNTER }
+        NFANode { kind: kind, data: data, transitions: Vec::new(), id: COUNTER, emptiness: crate::grammar2::Empty::NonEmpty}
     }
 
     pub unsafe fn new_regular(data: String) -> NFANode {
@@ -204,12 +205,12 @@ impl NFA {
         return NFANode::simulate_and_get_all_tokens(Rc::clone(&self.start), &chars, 0);
     }
 
-    pub unsafe fn build_from_rules(rules: &Vec<Rule>) -> Result<NFA, Box<dyn Error>> {
+    pub unsafe fn build_from_rules(rules: &Vec<Rule>) -> Result<(NFA, HashMap<String, Empty>), Box<dyn Error>> {
         if rules.len() == 0 {
             return Err(Box::new(NFABuilderError::NoRules));
         }
 
-        let mut rule_names: HashSet<String> = HashSet::new();
+        let mut rule_names: HashMap<String, Empty> = HashMap::new();
 
         // Create start node
         let start = Rc::new(Mutex::new(NFANode::new_start()));
@@ -233,6 +234,7 @@ impl NFA {
             // Combine with start node
             let mut nfa_start = nfa.start.as_ref().lock().unwrap();
             nfa_start.kind = NFANodeKind::Intersection;
+            let emptiness = nfa_start.emptiness.clone();
             drop(nfa_start);
 
             // Create a new end node
@@ -243,7 +245,7 @@ impl NFA {
             if let crate::file_parser::RuleKind::Named(name) = &rule.kind {
                 new_nfa_end.kind = NFANodeKind::EndWithToken(name.to_string());
                 // If a rule with the same name was already seen, return an error
-                if !rule_names.insert(name.to_string())
+                if let Some(_) = rule_names.insert(name.to_string(), emptiness)
                 {
                     return Err(Box::new(NFABuilderError::DuplicateNamedRule));
                 }
@@ -262,9 +264,9 @@ impl NFA {
             let mut start_unlocked = start.as_ref().lock().unwrap();
             start_unlocked.add_transition_to(nfa.start, TransitionKind::Empty, rule.priority);
         }
-        return Ok(NFA {
+        return Ok((NFA {
             start,
             end: Rc::new(Mutex::new(NFANode::new_end())),
-        });
+        }, rule_names));
     }
 }

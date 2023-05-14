@@ -179,7 +179,7 @@ impl GrammarGenerator {
     {
         let mut result: HashSet<Symbol> = HashSet::new();
         // Validate index
-        if index < 0 || index >= (*(*item).production).prod.len() {
+        if index >= (*(*item).production).prod.len() {
             return HashSet::new();
         }
 
@@ -188,7 +188,7 @@ impl GrammarGenerator {
         loop {
             // Get symbol at index
             let sym;
-            if index == (*(*item).production).prod.len() {
+            if index >= (*(*item).production).prod.len() {
                 sym = &(*item).lookup_sym;
             } else {
                 sym = &(*(*item).production).prod[index];
@@ -295,10 +295,10 @@ impl GrammarGenerator {
                 }
 
                 // Get the first set for this symbol
-                //let sym_after_next_sym = (*lr_item).get_symbol_after_next_symbol();
-                //let first_set = self.get_first_set(&sym_after_next_sym);
+                let sym_after_next_sym = (*lr_item).get_symbol_after_next_symbol();
+                let first_set = self.get_first_set(&sym_after_next_sym);
 
-                let first_set = self.get_first_set_lr_item(lr_item, (*lr_item).placeholder_index + 1);
+                //let first_set = self.get_first_set_lr_item(lr_item, (*lr_item).placeholder_index + 1);
 
                 //println!("sym: {}, first set: {:?}", next_sym.name, first_set);
 

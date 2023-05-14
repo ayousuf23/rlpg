@@ -21,7 +21,7 @@ term: unary_expr
 ;
 
 expression: term
-| expression space plus term
+| expression plus term
 ;
 
 root: expression
