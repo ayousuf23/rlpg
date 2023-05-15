@@ -29,15 +29,46 @@ fn recurse_tree(node: &TreeNode) -> f32
 }
 
 fn primary_expr(node: &TreeNode) -> f32 {
-    return recurse_tree(&node.children[0]);
+    if node.children.len() == 1 {
+        return recurse_tree(&node.children[0]);
+    }
+    let x = recurse_tree(&node.children[1]);
+    //println!("X: {}", x);
+    return x;
 }
 
 fn unary_expr(node: &TreeNode) -> f32 {
-    return recurse_tree(&node.children[0]);
+    if node.children.len() == 1 {
+        return recurse_tree(&node.children[0]);
+    }
+    //println!("hello");
+    let operator = &node.children[1];
+    //println!("operator: {:?}", operator);
+    if operator.token.symbol.name == "minus" {
+        //println!("{:?}", node.children[1]);
+        return -recurse_tree(&node.children[0]);
+    }
+    else {
+        return recurse_tree(&node.children[0]);
+    }
 }
 
 fn term(node: &TreeNode) -> f32 {
-    return recurse_tree(&node.children[0]);
+    let op1 = recurse_tree(&node.children[0]);
+    if node.children.len() == 1 {
+        return op1;
+    }
+
+    let op2 = recurse_tree(&node.children[2]);
+    
+    let operator = &node.children[1];
+    
+    if operator.token.symbol.name == "times" {
+        return op1 * op2;
+    }
+    else {
+        return op2 / op1;
+    }
 }
 
 fn expression(node: &TreeNode) -> f32
@@ -56,7 +87,7 @@ fn expression(node: &TreeNode) -> f32
         return op1 + op2;
     }
     else {
-        return op1 - op2;
+        return op2 - op1;
     }
 
 }

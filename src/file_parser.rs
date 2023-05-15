@@ -5,7 +5,8 @@ use std::io::{BufReader, BufRead};
 
 use colored::Colorize;
 
-use crate::grammar2::{Production, Symbol, GrammarRule};
+use crate::NFA;
+use crate::grammar2::{Production, Symbol, GrammarRule, Empty};
 
 #[derive(Debug, PartialEq)]
 pub enum FileParserErrorKind {
@@ -128,6 +129,9 @@ pub struct FileParser {
     curr_section: FileSection,
     symbols: HashMap<String, bool>,
     pub grammar_rules: Vec<GrammarRule>,
+    emptiness_info: HashMap<String, Empty>,
+    rules: Vec<Rule>,
+    undefined_symbols: HashSet<String>,
 }
 
 impl FileParser {
@@ -136,6 +140,9 @@ impl FileParser {
             curr_section: FileSection::Lexer,
             symbols: HashMap::new(),
             grammar_rules: Vec::new(),
+            emptiness_info: HashMap::new(),
+            rules: Vec::new(),
+            undefined_symbols: HashSet::new(),
         };
     }
 
@@ -148,7 +155,7 @@ impl FileParser {
         }
     }
 
-    pub fn parse_file(&mut self, path: &str) -> Result<Vec<Rule>, FileParserError> {
+    pub fn parse_file(&mut self, path: &str) -> Result<(), FileParserError> {
         let file = match File::open(path) {
             Ok(inner_file) => inner_file,
             Err(error) => return Err(FileParserError::new(FileParserErrorKind::FileOpenError, Some(Box::new(error)))),
@@ -222,7 +229,8 @@ impl FileParser {
         self.grammar_rules = result.unwrap();
         
 
-        return Ok(rules);
+        self.rules = rules;
+        return Ok(());
     }
 
     fn parse_rule(line: &str) -> Result<Rule, FileParserError> {
@@ -402,6 +410,10 @@ impl FileParser {
             return Err(FileParserError { kind: FileParserErrorKind::RootRuleDoesNotExist, inner_error: None });
         }
 
+        if self.undefined_symbols.len() > 0 {
+            return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
+        }
+
         return Ok(rules);
     }
 
@@ -444,14 +456,24 @@ impl FileParser {
         while let Some(temp_name) = self.parse_identifier(&line, &mut line_index) {
             // Check if symbol is defined
             if let Some(is_terminal) = self.symbols.get(&temp_name) {
-                production.push(Symbol { name: temp_name, is_terminal: *is_terminal, emptiness: crate::grammar2::Empty::NonEmpty });
+                
+                if self.undefined_symbols.contains(&temp_name) {
+                    self.undefined_symbols.remove(&temp_name);
+                }
+                
+                // Get emptiness info
+                let emptiness = self.get_emptiness_or_default(&temp_name);
+                production.push(Symbol { name: temp_name, is_terminal: *is_terminal, emptiness });
             }
             else if !FileParser::is_identifier_valid(&temp_name) {
                 return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
             }
             else {
                 // Throw an error for undefined symbol
-                return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
+                //return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
+                production.push(Symbol { name: temp_name.clone(), is_terminal: false, emptiness: Empty::NonEmpty });
+                // Add to undefined list
+                self.undefined_symbols.insert(temp_name);
             }
         }
 
@@ -464,7 +486,7 @@ impl FileParser {
         return Ok(rule);
     }
 
-    fn parse_second_prod(&self, line: &Vec<char>) -> Result<*mut Production, FileParserError>
+    fn parse_second_prod(&mut self, line: &Vec<char>) -> Result<*mut Production, FileParserError>
     {
         let mut line_index: usize = 0;
 
@@ -479,14 +501,22 @@ impl FileParser {
         while let Some(temp_name) = self.parse_identifier(&line, &mut line_index) {
             // Check if symbol is defined
             if let Some(is_terminal) = self.symbols.get(&temp_name) {
-                production.push(Symbol { name: temp_name, is_terminal: *is_terminal, emptiness: crate::grammar2::Empty::NonEmpty });
+                if self.undefined_symbols.contains(&temp_name) {
+                    self.undefined_symbols.remove(&temp_name);
+                }
+                let emptiness = self.get_emptiness_or_default(&temp_name);
+                production.push(Symbol { name: temp_name, is_terminal: *is_terminal, emptiness });
             }
             else if !FileParser::is_identifier_valid(&temp_name) {
                 return Err(FileParserError::new(FileParserErrorKind::InvalidIdentifier, None));
             }
             else {
                 // Throw an error for undefined symbol
-                return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
+                //return Err(FileParserError::new(FileParserErrorKind::UnknownSymbol, None));
+
+                production.push(Symbol { name: temp_name.clone(), is_terminal: false, emptiness: Empty::NonEmpty });
+                // Add to undefined list
+                self.undefined_symbols.insert(temp_name);
             }
         }
 
@@ -609,11 +639,40 @@ impl FileParser {
         let mut set = HashSet::new();
         for (item, is_terminal) in &self.symbols {
             if *is_terminal {
-                set.insert(Symbol {name: item.to_string(), is_terminal: true, emptiness: crate::grammar2::Empty::NonEmpty});
+                set.insert(Symbol {name: item.to_string(), is_terminal: true, emptiness: self.get_emptiness_or_default(&item)});
             }
         }
         return set;
     }
 
+    pub unsafe fn build_nfa(&mut self) -> Result<NFA, Box<dyn Error>>
+    {
+        let nfa = NFA::build_from_rules(&self.rules);
+        if let Err(error) = nfa
+        {
+            return Err(error);
+        }
+        let (nfa, symbol_emptiness) = nfa.unwrap();
+        // Set emptiness info
+        self.emptiness_info = symbol_emptiness;
+        for rule in &self.grammar_rules {
+            for prod in &rule.productions {
+                for sym in &mut (**prod).prod {
+                    sym.emptiness = self.get_emptiness_or_default(&sym.name);
+                }
+            }
+        }
+
+        return Ok(nfa);
+    }
+
+    pub fn get_emptiness_or_default(&self, name: &str) -> Empty
+    {
+        if let Some(value) = self.emptiness_info.get(name)
+        {
+            return value.clone();
+        }
+        return Empty::NonEmpty;
+    }
 
 }

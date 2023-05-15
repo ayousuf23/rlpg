@@ -175,24 +175,24 @@ impl GrammarGenerator {
         self.rules.insert(symbol, rule);
     }
 
-    pub unsafe fn get_first_set_lr_item(&self, item: *const LRItem, index: usize) -> HashSet<Symbol>
+    pub unsafe fn get_first_set_lr_item(&self, item: *const LRItem) -> HashSet<Symbol>
     {
         let mut result: HashSet<Symbol> = HashSet::new();
-        // Validate index
-        if index >= (*(*item).production).prod.len() {
-            return HashSet::new();
-        }
+        let mut index = (*item).placeholder_index + 1;
+        let size = (*(*item).production).prod.len();
+        let mut checked_lookup = false;
 
-        let mut index = index;
-
-        loop {
+        while index < size || !checked_lookup {
             // Get symbol at index
             let sym;
             if index >= (*(*item).production).prod.len() {
                 sym = &(*item).lookup_sym;
+                checked_lookup = true;
             } else {
                 sym = &(*(*item).production).prod[index];
             }
+
+            //println!("{:#?}", sym);
 
             match sym.emptiness {
                 Empty::NonEmpty => {
@@ -207,6 +207,7 @@ impl GrammarGenerator {
                     index += 1;
                 },
                 Empty::PossiblyEmpty => {
+                    println!("here1");
                     let temp = self.get_first_set(sym);
                     for temp_sym in temp {
                         result.insert(temp_sym);
@@ -296,9 +297,12 @@ impl GrammarGenerator {
 
                 // Get the first set for this symbol
                 let sym_after_next_sym = (*lr_item).get_symbol_after_next_symbol();
-                let first_set = self.get_first_set(&sym_after_next_sym);
+                let first_set1 = self.get_first_set(&sym_after_next_sym);
 
-                //let first_set = self.get_first_set_lr_item(lr_item, (*lr_item).placeholder_index + 1);
+                let first_set = self.get_first_set_lr_item(lr_item);
+
+                println!("Sym: {:?}, Set: {:#?}", sym_after_next_sym, first_set);
+                println!("Set 1: {:#?}", first_set1);
 
                 //println!("sym: {}, first set: {:?}", next_sym.name, first_set);
 
@@ -524,6 +528,24 @@ impl GrammarGenerator {
         }
         return true;
     }
+
+    /*unsafe fn get_first_set_possibly_empty(&self, symbol: &Symbol)
+    {
+        let set: HashSet<Symbol> = HashSet::new();
+
+        for rule in self.rules.values() {
+            for prod in &rule.productions {
+                let mut continue_loop = true;
+                while continue_loop {
+                    let prod_sym = 
+                }
+                for prod_sym in &(**prod).prod {
+
+
+                }
+            }
+        }
+    }*/
 }
 
 enum StackSymbol {

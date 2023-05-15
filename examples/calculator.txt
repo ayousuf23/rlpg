@@ -12,16 +12,21 @@ space [\ ]*
 SECTION GRAMMAR
 
 primary_expr: number
+| l_paren expression r_paren
 ;
 
 unary_expr: primary_expr
+| minus primary_expr
 ;
 
 term: unary_expr
+| term times unary_expr
+| term divide unary_expr
 ;
 
 expression: term
 | expression plus term
+| expression minus term
 ;
 
 root: expression
