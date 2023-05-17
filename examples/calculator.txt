@@ -7,7 +7,6 @@ divide \/
 mod \%
 l_paren \(
 r_paren \)
-space [\ ]*
 
 SECTION GRAMMAR
 
